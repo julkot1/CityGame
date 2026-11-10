@@ -1,11 +1,21 @@
 #include "world/World.h"
+#include "world/RandomWorldGenerator.h"
 #include <cmath>
 
 namespace Magnum {
 
-World::World(Float tileSpacing):
-    _tileSpacing{tileSpacing}
+World::World(Float tileSpacing, std::shared_ptr<WorldGenerator> generator):
+    _tileSpacing{tileSpacing},
+    _generator{std::move(generator)}
 {
+    if(!_generator) {
+        _generator = std::make_shared<RandomWorldGenerator>();
+    }
+    init();
+}
+
+void World::setGenerator(std::shared_ptr<WorldGenerator> generator) {
+    _generator = std::move(generator);
     init();
 }
 
@@ -20,6 +30,9 @@ void World::init() {
     for(Int cz = minCZ; cz <= maxCZ; ++cz) {
         for(Int cx = minCX; cx <= maxCX; ++cx) {
             Chunk& c = getOrCreateChunk({cx, cz});
+            if(_generator) {
+                _generator->generateChunk(c);
+            }
             c.buildMesh(_tileSpacing);
         }
     }

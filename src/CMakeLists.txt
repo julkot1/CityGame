@@ -17,6 +17,11 @@ add_executable(app
     world/Chunk.cpp
     world/World.h
     world/World.cpp
+    world/SimplexNoise.h
+    world/SimplexNoise.cpp
+    world/WorldGenerator.h
+    world/RandomWorldGenerator.h
+    world/RandomWorldGenerator.cpp
     world/WorldInputHandler.h
     world/WorldInputHandler.cpp
 )

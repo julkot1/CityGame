@@ -9,7 +9,12 @@ using namespace Math::Literals;
 
 enum class TileType: UnsignedByte {
     Empty = 0,
-    Grass
+    Water,
+    Sand,
+    Grass,
+    Forest,
+    Rock,
+    Snow
 };
 
 struct Tile {

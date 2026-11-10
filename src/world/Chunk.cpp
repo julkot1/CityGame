@@ -13,26 +13,12 @@ using namespace Math::Literals;
 Chunk::Chunk(const Vector2i& chunkCoord):
     _chunkCoord{chunkCoord}
 {
-    random_device rd;
-    mt19937 gen(rd());
-
-    uniform_real_distribution<float> distHeight(0.3f, 2.0f);
-    uniform_real_distribution<float> distColor(0.0f, 1.0f);
-
-    const Color3 baseColor = 0x689d6a_rgbf;
-
     for(Int z = 0; z < Size; ++z) {
         for(Int x = 0; x < Size; ++x) {
             Tile& t = tile(x, z);
             t.type = TileType::Grass;
-            
-            t.color = Color3{
-                distColor(gen),
-                distColor(gen),
-                distColor(gen)
-            };
-
-            t.height = distHeight(gen);
+            t.color = 0x689d6a_rgbf;
+            t.height = 1.0f;
             t.active = true;
         }
     }
