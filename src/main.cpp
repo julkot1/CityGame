@@ -7,6 +7,7 @@
 #include "world/WorldStorage.h"
 #include "world/RandomWorldGenerator.h"
 #include "ui/MenuManager.h"
+#include "ui/GameHUD.h"
 #include <Corrade/Containers/StringView.h>
 #include <Corrade/Utility/Debug.h>
 #include <Corrade/Utility/FormatStl.h>
@@ -36,6 +37,7 @@ class MyApplication: public Platform::Application {
         void textInputEvent(TextInputEvent& event) override;
 
         MenuManager _menuManager;
+        GameHUD _gameHUD;
 
         World _world{1.0f};
         Renderer _renderer;
@@ -56,6 +58,9 @@ MyApplication::MyApplication(const Arguments& arguments):
     _camera{framebufferSize()},
     _cameraController{_camera}
 {
+    // Enable VSync (1 = Sync with monitor refresh rate, e.g. 60Hz/144Hz)
+    setSwapInterval(1);
+
     _renderer.setViewport(framebufferSize());
 
     // Initialize ImGui integration with custom font size
@@ -175,6 +180,10 @@ void MyApplication::drawEvent() {
         _worldInputHandler.update(_input, framebufferSize());
 
         _renderer.render(_world, _camera, _worldInputHandler.hoverHit());
+
+        // In-game HUD
+        _gameHUD.update(dt);
+        _gameHUD.draw(windowSize(), _world.chunks().size());
     }
 
     // Enable/disable appropriate GL states for 2D UI rendering
