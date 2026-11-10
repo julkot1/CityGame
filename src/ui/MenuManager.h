@@ -4,6 +4,7 @@
 #include <string>
 #include <Magnum/Magnum.h>
 #include <Magnum/Math/Vector2.h>
+#include "ui/UIStyle.h"
 
 namespace Magnum {
 

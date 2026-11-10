@@ -19,6 +19,7 @@
 #include <Magnum/Timeline.h>
 #include <Magnum/ImGuiIntegration/Context.hpp>
 #include <imgui.h>
+#include <fstream>
 
 using namespace Magnum;
 
@@ -65,7 +66,27 @@ MyApplication::MyApplication(const Arguments& arguments):
 
     _renderer.setViewport(framebufferSize());
 
-    _imgui = ImGuiIntegration::Context(Vector2{windowSize()}/dpiScaling(),
+    // Initialize ImGui with custom font if available
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    const char* fontPaths[] = {
+        "assets/fonts/gomarice_no_continue.ttf",
+        "../assets/fonts/gomarice_no_continue.ttf"
+    };
+    bool fontLoaded = false;
+    for(const char* path : fontPaths) {
+        if(std::ifstream(path).good()) {
+            io.Fonts->AddFontFromFileTTF(path, 16.0f);
+            fontLoaded = true;
+            break;
+        }
+    }
+    if(!fontLoaded) {
+        io.Fonts->AddFontDefault();
+    }
+
+    _imgui = ImGuiIntegration::Context(*ImGui::GetCurrentContext(),
+                                       Vector2{windowSize()}/dpiScaling(),
                                        windowSize(), framebufferSize());
 
     // Initialize baseline UI scale

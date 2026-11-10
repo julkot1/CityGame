@@ -34,6 +34,8 @@ add_executable(app
     ui/MenuManager.cpp
     ui/GameHUD.h
     ui/GameHUD.cpp
+    ui/UIStyle.h
+    ui/UIStyle.cpp
 )
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -44,5 +46,11 @@ target_link_libraries(app PRIVATE
     Magnum::Magnum
     Magnum::Shaders
     MagnumIntegration::ImGui)
+
+# Automatically copy assets directory to build output so app finds them regardless of working dir
+add_custom_command(TARGET app POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${PROJECT_SOURCE_DIR}/assets
+        $<TARGET_FILE_DIR:app>/assets)
 
 set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT app)
