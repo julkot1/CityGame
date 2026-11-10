@@ -22,6 +22,8 @@ add_executable(app
     world/WorldGenerator.h
     world/RandomWorldGenerator.h
     world/RandomWorldGenerator.cpp
+    world/WorldStorage.h
+    world/WorldStorage.cpp
     world/WorldInputHandler.h
     world/WorldInputHandler.cpp
 )

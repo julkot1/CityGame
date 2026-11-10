@@ -1,5 +1,7 @@
 #include "world/World.h"
 #include "world/RandomWorldGenerator.h"
+#include "world/WorldStorage.h"
+#include <Corrade/Utility/Debug.h>
 #include <cmath>
 
 namespace Magnum {
@@ -11,7 +13,7 @@ World::World(Float tileSpacing, std::shared_ptr<WorldGenerator> generator):
     if(!_generator) {
         _generator = std::make_shared<RandomWorldGenerator>();
     }
-    init();
+    WorldStorage::loadOrGenerate(*this, "world.save");
 }
 
 void World::setGenerator(std::shared_ptr<WorldGenerator> generator) {

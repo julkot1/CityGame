@@ -2,6 +2,7 @@
 
 #include <map>
 #include <memory>
+#include <string>
 #include <utility>
 #include <Magnum/Magnum.h>
 #include <Magnum/Math/Vector2.h>
@@ -23,6 +24,7 @@ class World {
         const WorldGenerator* generator() const { return _generator.get(); }
 
         void init();
+        void clear() { _chunks.clear(); }
 
         Chunk& getOrCreateChunk(const Vector2i& chunkCoord);
         Chunk* chunk(const Vector2i& chunkCoord);
