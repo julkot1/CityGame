@@ -11,7 +11,6 @@ namespace Magnum {
 
 class World {
     public:
-        // World size in chunks along one dimension (e.g. 8x8 chunks = 256x256 tiles)
         static constexpr Int WorldChunkWidth = 8;
         static constexpr Int WorldChunkHeight = 8;
 
@@ -31,7 +30,6 @@ class World {
         Float tileSpacing() const { return _tileSpacing; }
         Float chunkSizeInWorldUnits() const { return Float(Chunk::Size) * _tileSpacing; }
 
-        // Total world bounds in world units (minX, minZ, maxX, maxZ)
         Float minWorldX() const { return -Float(WorldChunkWidth) * 0.5f * chunkSizeInWorldUnits(); }
         Float maxWorldX() const { return  Float(WorldChunkWidth) * 0.5f * chunkSizeInWorldUnits(); }
         Float minWorldZ() const { return -Float(WorldChunkHeight) * 0.5f * chunkSizeInWorldUnits(); }
@@ -39,6 +37,18 @@ class World {
 
         static Vector2i worldToChunkCoord(Int worldX, Int worldZ);
         static Vector2i worldToLocalTileCoord(Int worldX, Int worldZ);
+
+        // Raycasting to find clicked tile
+        struct RaycastHit {
+            bool hit{false};
+            Vector2i chunkCoord{0, 0};
+            Vector2i localTileCoord{0, 0};
+            Int worldTileX{0};
+            Int worldTileZ{0};
+            Vector3 worldPoint{0.0f};
+        };
+
+        RaycastHit raycastTile(const Vector3& rayOrigin, const Vector3& rayDir) const;
 
     private:
         Float _tileSpacing{1.05f};

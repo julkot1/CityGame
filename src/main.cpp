@@ -3,6 +3,7 @@
 #include "input/Input.h"
 #include "rendering/Renderer.h"
 #include "world/World.h"
+#include "world/WorldInputHandler.h"
 #include <Corrade/Containers/StringView.h>
 #include <Corrade/Utility/Debug.h>
 #include <Corrade/Utility/FormatStl.h>
@@ -33,6 +34,7 @@ class MyApplication: public Platform::Application {
         Camera _camera;
         CameraController _cameraController;
         Input _input;
+        WorldInputHandler _worldInputHandler{_world, _camera};
 
         UnsignedInt _fpsFrameCount{0};
         Float _fpsTimeAccumulator{0.0f};
@@ -93,7 +95,10 @@ void MyApplication::drawEvent() {
     const Vector3 maxBounds{_world.maxWorldX(), 0.0f, _world.maxWorldZ()};
     _cameraController.update(_input, dt, minBounds, maxBounds);
 
-    _renderer.render(_world, _camera);
+    // Update world input (raycasting, hover state, left/right clicks)
+    _worldInputHandler.update(_input, framebufferSize());
+
+    _renderer.render(_world, _camera, _worldInputHandler.hoverHit());
 
     _fpsFrameCount++;
     _fpsTimeAccumulator += dt;

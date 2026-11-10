@@ -12,9 +12,8 @@ CameraController::CameraController(Camera& camera, Float panSpeed, Float rotateS
 {}
 
 void CameraController::update(const Input& input, Float dt, const Vector3& minBounds, const Vector3& maxBounds) {
-    // Mouse orbit when middle or right mouse button held
-    if(input.isPointerPressed(Input::Pointer::MouseMiddle) ||
-       input.isPointerPressed(Input::Pointer::MouseRight))
+    // Mouse orbit when middle mouse button held
+    if(input.isPointerPressed(Input::Pointer::MouseMiddle))
     {
         Vector2 delta = input.cursorDelta();
         _camera.rotate(Rad{-delta.x() * 0.005f}, Rad{delta.y() * 0.005f});

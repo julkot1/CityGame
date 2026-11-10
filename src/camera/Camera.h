@@ -21,6 +21,9 @@ class Camera {
         Vector3 forward() const;
         Vector3 right() const;
 
+        Vector3 eyePosition() const;
+        Vector3 unprojectRay(const Vector2& screenPos, const Vector2i& viewportSize) const;
+
         Matrix4 projectionMatrix() const { return _projection; }
         Matrix4 viewMatrix() const;
         Matrix4 viewProjectionMatrix() const { return _projection * viewMatrix(); }

@@ -25,6 +25,74 @@ void World::init() {
     }
 }
 
+World::RaycastHit World::raycastTile(const Vector3& rayOrigin, const Vector3& rayDir) const {
+    RaycastHit bestHit;
+    Float closestDistance = 1e9f;
+
+    const Float halfSize = 0.5f;
+    const Float chunkWorldSize = chunkSizeInWorldUnits();
+
+    // Raycast through all chunks and tiles (oriented bounding box / cube test)
+    for(const auto& entry : _chunks) {
+        const Chunk& ch = entry.second;
+        Vector3 chunkOrigin{
+            Float(ch.chunkCoord().x()) * chunkWorldSize,
+            0.0f,
+            Float(ch.chunkCoord().y()) * chunkWorldSize
+        };
+
+        for(Int z = 0; z < Chunk::Size; ++z) {
+            for(Int x = 0; x < Chunk::Size; ++x) {
+                const Tile& t = ch.tile(x, z);
+                if(!t.active) continue;
+
+                Vector3 minB{
+                    chunkOrigin.x() + Float(x) * _tileSpacing - halfSize,
+                    0.0f,
+                    chunkOrigin.z() + Float(z) * _tileSpacing - halfSize
+                };
+                Vector3 maxB{
+                    chunkOrigin.x() + Float(x) * _tileSpacing + halfSize,
+                    t.height,
+                    chunkOrigin.z() + Float(z) * _tileSpacing + halfSize
+                };
+
+                // Ray vs AABB intersection
+                Float tmin = 0.0f;
+                Float tmax = 1e9f;
+
+                bool hitBox = true;
+                for(int i = 0; i < 3; ++i) {
+                    Float invD = 1.0f / rayDir[i];
+                    Float t0 = (minB[i] - rayOrigin[i]) * invD;
+                    Float t1 = (maxB[i] - rayOrigin[i]) * invD;
+                    if(invD < 0.0f) std::swap(t0, t1);
+
+                    tmin = std::max(tmin, t0);
+                    tmax = std::min(tmax, t1);
+
+                    if(tmax < tmin) {
+                        hitBox = false;
+                        break;
+                    }
+                }
+
+                if(hitBox && tmin < closestDistance) {
+                    closestDistance = tmin;
+                    bestHit.hit = true;
+                    bestHit.chunkCoord = ch.chunkCoord();
+                    bestHit.localTileCoord = {x, z};
+                    bestHit.worldTileX = ch.chunkCoord().x() * Chunk::Size + x;
+                    bestHit.worldTileZ = ch.chunkCoord().y() * Chunk::Size + z;
+                    bestHit.worldPoint = rayOrigin + rayDir * tmin;
+                }
+            }
+        }
+    }
+
+    return bestHit;
+}
+
 Vector2i World::worldToChunkCoord(Int worldX, Int worldZ) {
     Int cx = worldX >= 0 ? (worldX / Chunk::Size) : ((worldX - Chunk::Size + 1) / Chunk::Size);
     Int cz = worldZ >= 0 ? (worldZ / Chunk::Size) : ((worldZ - Chunk::Size + 1) / Chunk::Size);

@@ -51,18 +51,34 @@ Vector3 Camera::right() const {
     return Vector3{std::cos(Float(_yaw)), 0.0f, -std::sin(Float(_yaw))};
 }
 
-Matrix4 Camera::viewMatrix() const {
+Vector3 Camera::eyePosition() const {
     Float r = _distance;
     Float pitch = Float(_pitch);
     Float yaw = Float(_yaw);
 
-    Vector3 eye{
+    return Vector3{
         _target.x() + r * std::cos(pitch) * std::sin(yaw),
         _target.y() + r * std::sin(pitch),
         _target.z() + r * std::cos(pitch) * std::cos(yaw)
     };
+}
 
-    return Matrix4::lookAt(eye, _target, Vector3::yAxis()).invertedRigid();
+Matrix4 Camera::viewMatrix() const {
+    return Matrix4::lookAt(eyePosition(), _target, Vector3::yAxis()).invertedRigid();
+}
+
+Vector3 Camera::unprojectRay(const Vector2& screenPos, const Vector2i& viewportSize) const {
+    // Convert 2D screen coordinates (top-left origin) to Normalized Device Coordinates (NDC) [-1, 1]
+    Vector2 ndc{
+        (2.0f * screenPos.x()) / Float(viewportSize.x()) - 1.0f,
+        1.0f - (2.0f * screenPos.y()) / Float(viewportSize.y())
+    };
+
+    Matrix4 invVP = viewProjectionMatrix().inverted();
+    Vector3 worldNear = invVP.transformPoint(Vector3{ndc.x(), ndc.y(), -1.0f});
+    Vector3 worldFar  = invVP.transformPoint(Vector3{ndc.x(), ndc.y(),  1.0f});
+
+    return (worldFar - worldNear).normalized();
 }
 
 }
