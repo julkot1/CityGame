@@ -13,7 +13,9 @@ namespace Magnum {
 
 struct ChunkVertex {
     Vector3 position;
+    Vector3 normal;
     Color3 color;
+    Float ao; // Ambient occlusion factor (0.0 = deep shadow corner, 1.0 = fully exposed)
 };
 
 class Chunk {

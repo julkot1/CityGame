@@ -50,6 +50,20 @@ void Chunk::buildMesh(Float tileSpacing) {
 
     const Float halfSize = 0.5f;
 
+    // Helper to test if a neighbor tile is higher than the current height
+    auto isHigher = [&](Int nx, Int nz, Float refH) -> bool {
+        if(nx < 0 || nx >= Size || nz < 0 || nz >= Size) return false;
+        const Tile& nt = tile(nx, nz);
+        return nt.active && (nt.height > refH + 0.01f);
+    };
+
+    // Standard voxel ambient occlusion calculation for a vertex given two adjacent side neighbors and one diagonal corner neighbor
+    auto vertexAO = [](bool side1, bool side2, bool corner) -> Float {
+        if(side1 && side2) return 0.25f; // Deep corner between two intersecting walls
+        int count = (side1 ? 1 : 0) + (side2 ? 1 : 0) + (corner ? 1 : 0);
+        return 1.0f - Float(count) * 0.25f; // 1.0 (open), 0.75 (one neighbor), 0.50 (two neighbors)
+    };
+
     for(Int z = 0; z < Size; ++z) {
         for(Int x = 0; x < Size; ++x) {
             const Tile& t = tile(x, z);
@@ -60,32 +74,61 @@ void Chunk::buildMesh(Float tileSpacing) {
             const Float h = t.height;
             const Color3 baseCol = t.color;
 
-            const Color3 topCol   = baseCol * 1.00f;
-            const Color3 frontCol = baseCol * 0.85f;
-            const Color3 backCol  = baseCol * 0.70f;
-            const Color3 leftCol  = baseCol * 0.75f;
-            const Color3 rightCol = baseCol * 0.80f;
+            // Neighbor height tests for Top face AO
+            bool nN  = isHigher(x, z - 1, h); // -Z (North)
+            bool nS  = isHigher(x, z + 1, h); // +Z (South)
+            bool nW  = isHigher(x - 1, z, h); // -X (West)
+            bool nE  = isHigher(x + 1, z, h); // +X (East)
+            bool nNW = isHigher(x - 1, z - 1, h);
+            bool nNE = isHigher(x + 1, z - 1, h);
+            bool nSW = isHigher(x - 1, z + 1, h);
+            bool nSE = isHigher(x + 1, z + 1, h);
 
+            // Compute AO for each corner of the top face:
+            // v0: (-X, -Z) -> West & North
+            // v1: (+X, -Z) -> East & North
+            // v2: (+X, +Z) -> East & South
+            // v3: (-X, +Z) -> West & South
+            Float ao0 = vertexAO(nW, nN, nNW);
+            Float ao1 = vertexAO(nE, nN, nNE);
+            Float ao2 = vertexAO(nE, nS, nSE);
+            Float ao3 = vertexAO(nW, nS, nSW);
+
+            // Top (+Y) face
             UnsignedInt base = vertices.size();
-            vertices.push_back({{cx - halfSize, h, cz - halfSize}, topCol});
-            vertices.push_back({{cx + halfSize, h, cz - halfSize}, topCol});
-            vertices.push_back({{cx + halfSize, h, cz + halfSize}, topCol});
-            vertices.push_back({{cx - halfSize, h, cz + halfSize}, topCol});
-            indices.push_back(base + 0);
-            indices.push_back(base + 2);
-            indices.push_back(base + 1);
-            indices.push_back(base + 0);
-            indices.push_back(base + 3);
-            indices.push_back(base + 2);
+            Vector3 topNormal{0.0f, 1.0f, 0.0f};
+            vertices.push_back({{cx - halfSize, h, cz - halfSize}, topNormal, baseCol, ao0});
+            vertices.push_back({{cx + halfSize, h, cz - halfSize}, topNormal, baseCol, ao1});
+            vertices.push_back({{cx + halfSize, h, cz + halfSize}, topNormal, baseCol, ao2});
+            vertices.push_back({{cx - halfSize, h, cz + halfSize}, topNormal, baseCol, ao3});
+
+            // Flip quad triangulation if diagonal AO contrast would produce an interpolation crease
+            if(ao0 + ao2 < ao1 + ao3) {
+                indices.push_back(base + 1);
+                indices.push_back(base + 0);
+                indices.push_back(base + 3);
+                indices.push_back(base + 1);
+                indices.push_back(base + 3);
+                indices.push_back(base + 2);
+            } else {
+                indices.push_back(base + 0);
+                indices.push_back(base + 2);
+                indices.push_back(base + 1);
+                indices.push_back(base + 0);
+                indices.push_back(base + 3);
+                indices.push_back(base + 2);
+            }
 
             // Front (+Z): Only emit if neighbor in +Z direction is missing or lower
             Float frontH = (z < Size - 1) ? tile(x, z + 1).height : 0.0f;
             if(h > frontH) {
                 base = vertices.size();
-                vertices.push_back({{cx - halfSize, frontH, cz + halfSize}, frontCol});
-                vertices.push_back({{cx + halfSize, frontH, cz + halfSize}, frontCol});
-                vertices.push_back({{cx + halfSize,      h, cz + halfSize}, frontCol});
-                vertices.push_back({{cx - halfSize,      h, cz + halfSize}, frontCol});
+                Vector3 frontNormal{0.0f, 0.0f, 1.0f};
+                // Wall vertices: base gets slight bottom contact AO (0.75), top vertices full or slight shade
+                vertices.push_back({{cx - halfSize, frontH, cz + halfSize}, frontNormal, baseCol, 0.70f});
+                vertices.push_back({{cx + halfSize, frontH, cz + halfSize}, frontNormal, baseCol, 0.70f});
+                vertices.push_back({{cx + halfSize,      h, cz + halfSize}, frontNormal, baseCol, 1.0f});
+                vertices.push_back({{cx - halfSize,      h, cz + halfSize}, frontNormal, baseCol, 1.0f});
                 indices.push_back(base + 0);
                 indices.push_back(base + 1);
                 indices.push_back(base + 2);
@@ -98,10 +141,11 @@ void Chunk::buildMesh(Float tileSpacing) {
             Float backH = (z > 0) ? tile(x, z - 1).height : 0.0f;
             if(h > backH) {
                 base = vertices.size();
-                vertices.push_back({{cx + halfSize, backH, cz - halfSize}, backCol});
-                vertices.push_back({{cx - halfSize, backH, cz - halfSize}, backCol});
-                vertices.push_back({{cx - halfSize,     h, cz - halfSize}, backCol});
-                vertices.push_back({{cx + halfSize,     h, cz - halfSize}, backCol});
+                Vector3 backNormal{0.0f, 0.0f, -1.0f};
+                vertices.push_back({{cx + halfSize, backH, cz - halfSize}, backNormal, baseCol, 0.70f});
+                vertices.push_back({{cx - halfSize, backH, cz - halfSize}, backNormal, baseCol, 0.70f});
+                vertices.push_back({{cx - halfSize,     h, cz - halfSize}, backNormal, baseCol, 1.0f});
+                vertices.push_back({{cx + halfSize,     h, cz - halfSize}, backNormal, baseCol, 1.0f});
                 indices.push_back(base + 0);
                 indices.push_back(base + 1);
                 indices.push_back(base + 2);
@@ -114,10 +158,11 @@ void Chunk::buildMesh(Float tileSpacing) {
             Float leftH = (x > 0) ? tile(x - 1, z).height : 0.0f;
             if(h > leftH) {
                 base = vertices.size();
-                vertices.push_back({{cx - halfSize, leftH, cz - halfSize}, leftCol});
-                vertices.push_back({{cx - halfSize, leftH, cz + halfSize}, leftCol});
-                vertices.push_back({{cx - halfSize,     h, cz + halfSize}, leftCol});
-                vertices.push_back({{cx - halfSize,     h, cz - halfSize}, leftCol});
+                Vector3 leftNormal{-1.0f, 0.0f, 0.0f};
+                vertices.push_back({{cx - halfSize, leftH, cz - halfSize}, leftNormal, baseCol, 0.70f});
+                vertices.push_back({{cx - halfSize, leftH, cz + halfSize}, leftNormal, baseCol, 0.70f});
+                vertices.push_back({{cx - halfSize,     h, cz + halfSize}, leftNormal, baseCol, 1.0f});
+                vertices.push_back({{cx - halfSize,     h, cz - halfSize}, leftNormal, baseCol, 1.0f});
                 indices.push_back(base + 0);
                 indices.push_back(base + 1);
                 indices.push_back(base + 2);
@@ -130,10 +175,11 @@ void Chunk::buildMesh(Float tileSpacing) {
             Float rightH = (x < Size - 1) ? tile(x + 1, z).height : 0.0f;
             if(h > rightH) {
                 base = vertices.size();
-                vertices.push_back({{cx + halfSize, rightH, cz + halfSize}, rightCol});
-                vertices.push_back({{cx + halfSize, rightH, cz - halfSize}, rightCol});
-                vertices.push_back({{cx + halfSize,      h, cz - halfSize}, rightCol});
-                vertices.push_back({{cx + halfSize,      h, cz + halfSize}, rightCol});
+                Vector3 rightNormal{1.0f, 0.0f, 0.0f};
+                vertices.push_back({{cx + halfSize, rightH, cz + halfSize}, rightNormal, baseCol, 0.70f});
+                vertices.push_back({{cx + halfSize, rightH, cz - halfSize}, rightNormal, baseCol, 0.70f});
+                vertices.push_back({{cx + halfSize,      h, cz - halfSize}, rightNormal, baseCol, 1.0f});
+                vertices.push_back({{cx + halfSize,      h, cz + halfSize}, rightNormal, baseCol, 1.0f});
                 indices.push_back(base + 0);
                 indices.push_back(base + 1);
                 indices.push_back(base + 2);
@@ -144,13 +190,19 @@ void Chunk::buildMesh(Float tileSpacing) {
         }
     }
 
-    _vertexBuffer = GL::Buffer{Containers::arrayView(vertices)};
-    _indexBuffer = GL::Buffer{Containers::arrayView(indices)};
+    _vertexBuffer = GL::Buffer{GL::Buffer::TargetHint::Array};
+    _vertexBuffer.setData(Containers::arrayView(vertices), GL::BufferUsage::StaticDraw);
+
+    _indexBuffer = GL::Buffer{GL::Buffer::TargetHint::ElementArray};
+    _indexBuffer.setData(Containers::arrayView(indices), GL::BufferUsage::StaticDraw);
+
     _mesh = GL::Mesh{};
     _mesh.setCount(indices.size())
          .addVertexBuffer(_vertexBuffer, 0,
-            Shaders::VertexColorGL3D::Position{},
-            Shaders::VertexColorGL3D::Color3{})
+            GL::Attribute<0, Vector3>{}, // Position
+            GL::Attribute<1, Vector3>{}, // Normal
+            GL::Attribute<2, Color3>{},  // Color
+            GL::Attribute<3, Float>{})   // Ambient Occlusion
          .setIndexBuffer(_indexBuffer, 0, GL::MeshIndexType::UnsignedInt);
     _meshGenerated = true;
 }

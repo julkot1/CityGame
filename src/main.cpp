@@ -59,7 +59,7 @@ MyApplication::MyApplication(const Arguments& arguments):
     _cameraController{_camera}
 {
     // Enable VSync (1 = Sync with monitor refresh rate, e.g. 60Hz/144Hz)
-    setSwapInterval(0);
+    setSwapInterval(1);
 
     _renderer.setViewport(framebufferSize());
 

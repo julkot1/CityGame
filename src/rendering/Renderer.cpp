@@ -65,6 +65,9 @@ void Renderer::render(const World& world, const Camera& camera, const World::Ray
     const Matrix4 viewProjection = camera.viewProjectionMatrix();
     const Float chunkWorldSize = world.chunkSizeInWorldUnits();
 
+    _shader.setProjectionMatrix(viewProjection)
+           .setCameraPosition(camera.eyePosition());
+
     // Extract 6 view frustum planes from viewProjection matrix for Frustum Culling
     // Plane: ax + by + cz + d = 0
     std::array<Vector4, 6> planes;
@@ -123,7 +126,8 @@ void Renderer::render(const World& world, const Camera& camera, const World::Ray
 
         if(outside) continue; // Culled! Skip drawing this chunk completely
 
-        _shader.setTransformationProjectionMatrix(viewProjection * Matrix4::translation(minPos));
+        Matrix4 modelMatrix = Matrix4::translation(minPos);
+        _shader.setTransformationMatrix(modelMatrix);
         _shader.draw(chunk.mesh());
         _lastDrawnChunks++;
     }

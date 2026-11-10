@@ -12,6 +12,8 @@ add_executable(app
     input/Input.cpp
     rendering/Renderer.h
     rendering/Renderer.cpp
+    rendering/TerrainShader.h
+    rendering/TerrainShader.cpp
     world/Tile.h
     world/Chunk.h
     world/Chunk.cpp

@@ -1,12 +1,12 @@
 #pragma once
 
-#include <Magnum/Shaders/VertexColorGL.h>
 #include <Magnum/Shaders/FlatGL.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/Math/Vector2.h>
 #include "camera/Camera.h"
 #include "world/World.h"
+#include "rendering/TerrainShader.h"
 
 namespace Magnum {
 
@@ -19,9 +19,11 @@ class Renderer {
 
         UnsignedInt lastDrawnChunks() const { return _lastDrawnChunks; }
 
+        TerrainShader& terrainShader() { return _shader; }
+
     private:
         UnsignedInt _lastDrawnChunks{0};
-        Shaders::VertexColorGL3D _shader;
+        TerrainShader _shader;
         Shaders::FlatGL3D _flatShader;
         GL::Mesh _highlightMesh;
         GL::Buffer _highlightVertexBuffer{NoCreate};
