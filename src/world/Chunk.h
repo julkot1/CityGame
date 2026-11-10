@@ -8,6 +8,7 @@
 #include <Magnum/Math/Vector2.h>
 #include <Magnum/Math/Vector3.h>
 #include "world/Tile.h"
+#include "world/Entity.h"
 
 namespace Magnum {
 
@@ -33,6 +34,12 @@ class Chunk {
         const Tile& tile(Int x, Int z) const;
         const std::array<Tile, Size * Size>& tiles() const { return _tiles; }
 
+        // Entity Management
+        const std::vector<Entity>& entities() const { return _entities; }
+        std::vector<Entity>& entities() { return _entities; }
+        void addEntity(const Entity& entity) { _entities.push_back(entity); }
+        void clearEntities() { _entities.clear(); }
+
         void buildMesh(Float tileSpacing = 0.0f);
         bool hasMesh() const { return _meshGenerated; }
         GL::Mesh& mesh() { return _mesh; }
@@ -41,6 +48,7 @@ class Chunk {
     private:
         Vector2i _chunkCoord{0, 0};
         std::array<Tile, Size * Size> _tiles;
+        std::vector<Entity> _entities;
 
         mutable GL::Mesh _mesh;
         GL::Buffer _vertexBuffer{NoCreate};

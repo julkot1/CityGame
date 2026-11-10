@@ -1,5 +1,6 @@
 #include "world/WorldStorage.h"
 #include "world/World.h"
+#include "world/Entity.h"
 #include <Corrade/Utility/Debug.h>
 #include <fstream>
 
@@ -7,13 +8,22 @@ namespace Magnum {
 
 namespace {
     constexpr char SaveMagic[4] = {'C', 'I', 'T', 'Y'};
-    constexpr UnsignedInt SaveVersion = 1;
+    constexpr UnsignedInt SaveVersion = 2; // Incremented for generic Entity support
 
     struct SerializedTile {
         UnsignedByte type;
         UnsignedByte active;
         Float height;
         Float r, g, b;
+    };
+
+    struct SerializedEntity {
+        UnsignedInt id;
+        UnsignedShort type;
+        Float posX, posY, posZ;
+        Float rotationY;
+        Float scale;
+        UnsignedInt data;
     };
 }
 
@@ -45,6 +55,7 @@ bool WorldStorage::saveToFile(const World& world, const std::string& filepath) {
         out.write(reinterpret_cast<const char*>(&cz), sizeof(cz));
 
         const Chunk& chunk = entry.second;
+        // 1. Write tiles
         for(Int z = 0; z < Chunk::Size; ++z) {
             for(Int x = 0; x < Chunk::Size; ++x) {
                 const Tile& t = chunk.tile(x, z);
@@ -58,6 +69,21 @@ bool WorldStorage::saveToFile(const World& world, const std::string& filepath) {
                 };
                 out.write(reinterpret_cast<const char*>(&st), sizeof(st));
             }
+        }
+
+        // 2. Write entities
+        UnsignedInt entityCount = chunk.entities().size();
+        out.write(reinterpret_cast<const char*>(&entityCount), sizeof(entityCount));
+        for(const Entity& e : chunk.entities()) {
+            SerializedEntity se{
+                e.id,
+                static_cast<UnsignedShort>(e.type),
+                e.position.x(), e.position.y(), e.position.z(),
+                e.rotationY,
+                e.scale,
+                e.data
+            };
+            out.write(reinterpret_cast<const char*>(&se), sizeof(se));
         }
     }
 
@@ -80,7 +106,7 @@ bool WorldStorage::loadFromFile(World& world, const std::string& filepath) {
 
     UnsignedInt version = 0;
     in.read(reinterpret_cast<char*>(&version), sizeof(version));
-    if(version != SaveVersion) {
+    if(version != 1 && version != 2) {
         Debug{} << "Unsupported save file version:" << version;
         return false;
     }
@@ -102,6 +128,9 @@ bool WorldStorage::loadFromFile(World& world, const std::string& filepath) {
         in.read(reinterpret_cast<char*>(&cz), sizeof(cz));
 
         Chunk& chunk = world.getOrCreateChunk({cx, cz});
+        chunk.clearEntities();
+
+        // Read tiles
         for(Int z = 0; z < Chunk::Size; ++z) {
             for(Int x = 0; x < Chunk::Size; ++x) {
                 SerializedTile st;
@@ -114,6 +143,25 @@ bool WorldStorage::loadFromFile(World& world, const std::string& filepath) {
                 t.color = Color3{st.r, st.g, st.b};
             }
         }
+
+        // Read entities (version 2+)
+        if(version >= 2) {
+            UnsignedInt entityCount = 0;
+            in.read(reinterpret_cast<char*>(&entityCount), sizeof(entityCount));
+            for(UnsignedInt j = 0; j < entityCount; ++j) {
+                SerializedEntity se;
+                in.read(reinterpret_cast<char*>(&se), sizeof(se));
+                Entity e;
+                e.id = se.id;
+                e.type = static_cast<EntityType>(se.type);
+                e.position = Vector3{se.posX, se.posY, se.posZ};
+                e.rotationY = se.rotationY;
+                e.scale = se.scale;
+                e.data = se.data;
+                chunk.addEntity(e);
+            }
+        }
+
         chunk.buildMesh(world.tileSpacing());
     }
 

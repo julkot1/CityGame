@@ -1,4 +1,5 @@
 #include "world/Chunk.h"
+#include "world/EntityModelRegistry.h"
 
 #include <Corrade/Containers/ArrayView.h>
 #include <Corrade/Containers/ArrayViewStl.h>
@@ -188,6 +189,11 @@ void Chunk::buildMesh(Float tileSpacing) {
                 indices.push_back(base + 3);
             }
         }
+    }
+
+    // Build geometry for all chunk entities (e.g. Trees)
+    for(const Entity& entity : _entities) {
+        EntityModelRegistry::buildEntityMesh(entity, vertices, indices);
     }
 
     _vertexBuffer = GL::Buffer{GL::Buffer::TargetHint::Array};

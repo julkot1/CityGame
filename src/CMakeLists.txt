@@ -17,6 +17,9 @@ add_executable(app
     world/TimeManager.h
     world/TimeManager.cpp
     world/Tile.h
+    world/Entity.h
+    world/EntityModelRegistry.h
+    world/EntityModelRegistry.cpp
     world/Chunk.h
     world/Chunk.cpp
     world/World.h
