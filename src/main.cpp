@@ -59,25 +59,16 @@ MyApplication::MyApplication(const Arguments& arguments):
     _cameraController{_camera}
 {
     // Enable VSync (1 = Sync with monitor refresh rate, e.g. 60Hz/144Hz)
-    setSwapInterval(1);
+    setSwapInterval(0);
 
     _renderer.setViewport(framebufferSize());
 
-    // Initialize ImGui integration with custom font size
     _imgui = ImGuiIntegration::Context(Vector2{windowSize()}/dpiScaling(),
                                        windowSize(), framebufferSize());
-
-    // Setup ImGui Dark styling with rounded buttons
-    ImGui::StyleColorsDark();
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 8.0f;
-    style.FrameRounding = 6.0f;
-    style.ItemSpacing = ImVec2(12, 10);
     
     _menuManager.applyCustomTheme();
-    // Setup Menu actions
+
     _menuManager.setOnCreateWorld([this](const WorldCreationParams& params) {
-        // Apply generator parameters
         auto randGen = dynamic_cast<RandomWorldGenerator*>(_world.generator());
         if(randGen) {
             randGen->setSeed(params.seed);
@@ -87,7 +78,6 @@ MyApplication::MyApplication(const Arguments& arguments):
         _world.init(params.worldWidthChunks, params.worldHeightChunks);
         WorldStorage::saveToFile(_world, "world.save");
 
-        // Reset camera target to center of new world
         _camera.setTarget(Vector3{0.0f});
     });
     _menuManager.setOnSaveWorld([this]() {
@@ -181,9 +171,9 @@ void MyApplication::drawEvent() {
 
         _renderer.render(_world, _camera, _worldInputHandler.hoverHit());
 
-        // In-game HUD
+        // In-game HUD: displays rendered vs culled chunk count
         _gameHUD.update(dt);
-        _gameHUD.draw(windowSize(), _world.chunks().size());
+        _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(), _world.chunks().size());
     }
 
     // Enable/disable appropriate GL states for 2D UI rendering

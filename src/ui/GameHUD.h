@@ -13,7 +13,7 @@ class GameHUD {
         explicit GameHUD();
 
         void update(Float dt);
-        void draw(const Vector2i& windowSize, UnsignedInt chunkCount);
+        void draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks);
 
         Float currentFps() const { return _currentFps; }
         Float currentFrameTimeMs() const { return _currentFrameTimeMs; }

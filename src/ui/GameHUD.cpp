@@ -16,7 +16,7 @@ void GameHUD::update(Float dt) {
     }
 }
 
-void GameHUD::draw(const Vector2i& windowSize, UnsignedInt chunkCount) {
+void GameHUD::draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks) {
     // Top-left corner overlay
     constexpr float padding = 12.0f;
     ImVec2 overlayPos(padding, padding);
@@ -42,13 +42,14 @@ void GameHUD::draw(const Vector2i& windowSize, UnsignedInt chunkCount) {
             fpsColor = ImVec4(0.95f, 0.35f, 0.35f, 1.0f); // Red
         }
 
-        ImGui::TextColored(fpsColor, "FPS: %.1f", _currentFps);
+        ImGui::TextColored(fpsColor, "FPS: %.1f", static_cast<double>(_currentFps));
         ImGui::SameLine();
-        ImGui::TextDisabled("(%.2f ms)", _currentFrameTimeMs);
+        ImGui::TextDisabled("(%.2f ms)", static_cast<double>(_currentFrameTimeMs));
 
         ImGui::Separator();
 
-        ImGui::Text("Chunks: %u", chunkCount);
+        ImGui::Text("Chunks: %u / %u (Culled: %u)",
+                    renderedChunks, totalChunks, totalChunks - renderedChunks);
         ImGui::TextDisabled("Press [ESC] for Menu");
 
         ImGui::End();

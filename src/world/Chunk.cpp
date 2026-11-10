@@ -78,53 +78,69 @@ void Chunk::buildMesh(Float tileSpacing) {
             indices.push_back(base + 3);
             indices.push_back(base + 2);
 
-            base = vertices.size();
-            vertices.push_back({{cx - halfSize, 0.0f, cz + halfSize}, frontCol});
-            vertices.push_back({{cx + halfSize, 0.0f, cz + halfSize}, frontCol});
-            vertices.push_back({{cx + halfSize,    h, cz + halfSize}, frontCol});
-            vertices.push_back({{cx - halfSize,    h, cz + halfSize}, frontCol});
-            indices.push_back(base + 0);
-            indices.push_back(base + 1);
-            indices.push_back(base + 2);
-            indices.push_back(base + 0);
-            indices.push_back(base + 2);
-            indices.push_back(base + 3);
+            // Front (+Z): Only emit if neighbor in +Z direction is missing or lower
+            Float frontH = (z < Size - 1) ? tile(x, z + 1).height : 0.0f;
+            if(h > frontH) {
+                base = vertices.size();
+                vertices.push_back({{cx - halfSize, frontH, cz + halfSize}, frontCol});
+                vertices.push_back({{cx + halfSize, frontH, cz + halfSize}, frontCol});
+                vertices.push_back({{cx + halfSize,      h, cz + halfSize}, frontCol});
+                vertices.push_back({{cx - halfSize,      h, cz + halfSize}, frontCol});
+                indices.push_back(base + 0);
+                indices.push_back(base + 1);
+                indices.push_back(base + 2);
+                indices.push_back(base + 0);
+                indices.push_back(base + 2);
+                indices.push_back(base + 3);
+            }
 
-            base = vertices.size();
-            vertices.push_back({{cx + halfSize, 0.0f, cz - halfSize}, backCol});
-            vertices.push_back({{cx - halfSize, 0.0f, cz - halfSize}, backCol});
-            vertices.push_back({{cx - halfSize,    h, cz - halfSize}, backCol});
-            vertices.push_back({{cx + halfSize,    h, cz - halfSize}, backCol});
-            indices.push_back(base + 0);
-            indices.push_back(base + 1);
-            indices.push_back(base + 2);
-            indices.push_back(base + 0);
-            indices.push_back(base + 2);
-            indices.push_back(base + 3);
+            // Back (-Z): Only emit if neighbor in -Z direction is missing or lower
+            Float backH = (z > 0) ? tile(x, z - 1).height : 0.0f;
+            if(h > backH) {
+                base = vertices.size();
+                vertices.push_back({{cx + halfSize, backH, cz - halfSize}, backCol});
+                vertices.push_back({{cx - halfSize, backH, cz - halfSize}, backCol});
+                vertices.push_back({{cx - halfSize,     h, cz - halfSize}, backCol});
+                vertices.push_back({{cx + halfSize,     h, cz - halfSize}, backCol});
+                indices.push_back(base + 0);
+                indices.push_back(base + 1);
+                indices.push_back(base + 2);
+                indices.push_back(base + 0);
+                indices.push_back(base + 2);
+                indices.push_back(base + 3);
+            }
 
-            base = vertices.size();
-            vertices.push_back({{cx - halfSize, 0.0f, cz - halfSize}, leftCol});
-            vertices.push_back({{cx - halfSize, 0.0f, cz + halfSize}, leftCol});
-            vertices.push_back({{cx - halfSize,    h, cz + halfSize}, leftCol});
-            vertices.push_back({{cx - halfSize,    h, cz - halfSize}, leftCol});
-            indices.push_back(base + 0);
-            indices.push_back(base + 1);
-            indices.push_back(base + 2);
-            indices.push_back(base + 0);
-            indices.push_back(base + 2);
-            indices.push_back(base + 3);
+            // Left (-X): Only emit if neighbor in -X direction is missing or lower
+            Float leftH = (x > 0) ? tile(x - 1, z).height : 0.0f;
+            if(h > leftH) {
+                base = vertices.size();
+                vertices.push_back({{cx - halfSize, leftH, cz - halfSize}, leftCol});
+                vertices.push_back({{cx - halfSize, leftH, cz + halfSize}, leftCol});
+                vertices.push_back({{cx - halfSize,     h, cz + halfSize}, leftCol});
+                vertices.push_back({{cx - halfSize,     h, cz - halfSize}, leftCol});
+                indices.push_back(base + 0);
+                indices.push_back(base + 1);
+                indices.push_back(base + 2);
+                indices.push_back(base + 0);
+                indices.push_back(base + 2);
+                indices.push_back(base + 3);
+            }
 
-            base = vertices.size();
-            vertices.push_back({{cx + halfSize, 0.0f, cz + halfSize}, rightCol});
-            vertices.push_back({{cx + halfSize, 0.0f, cz - halfSize}, rightCol});
-            vertices.push_back({{cx + halfSize,    h, cz - halfSize}, rightCol});
-            vertices.push_back({{cx + halfSize,    h, cz + halfSize}, rightCol});
-            indices.push_back(base + 0);
-            indices.push_back(base + 1);
-            indices.push_back(base + 2);
-            indices.push_back(base + 0);
-            indices.push_back(base + 2);
-            indices.push_back(base + 3);
+            // Right (+X): Only emit if neighbor in +X direction is missing or lower
+            Float rightH = (x < Size - 1) ? tile(x + 1, z).height : 0.0f;
+            if(h > rightH) {
+                base = vertices.size();
+                vertices.push_back({{cx + halfSize, rightH, cz + halfSize}, rightCol});
+                vertices.push_back({{cx + halfSize, rightH, cz - halfSize}, rightCol});
+                vertices.push_back({{cx + halfSize,      h, cz - halfSize}, rightCol});
+                vertices.push_back({{cx + halfSize,      h, cz + halfSize}, rightCol});
+                indices.push_back(base + 0);
+                indices.push_back(base + 1);
+                indices.push_back(base + 2);
+                indices.push_back(base + 0);
+                indices.push_back(base + 2);
+                indices.push_back(base + 3);
+            }
         }
     }
 

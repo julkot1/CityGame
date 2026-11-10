@@ -17,7 +17,10 @@ class Renderer {
         void setViewport(const Vector2i& size);
         void render(const World& world, const Camera& camera, const World::RaycastHit& hoverHit = {});
 
+        UnsignedInt lastDrawnChunks() const { return _lastDrawnChunks; }
+
     private:
+        UnsignedInt _lastDrawnChunks{0};
         Shaders::VertexColorGL3D _shader;
         Shaders::FlatGL3D _flatShader;
         GL::Mesh _highlightMesh;

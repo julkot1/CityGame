@@ -14,6 +14,7 @@ using namespace Math::Literals;
 Renderer::Renderer() {
     GL::Renderer::setClearColor(0xa5c9ea_rgbf);
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
+    GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
     GL::Renderer::enable(GL::Renderer::Feature::Blending);
     GL::Renderer::setBlendFunction(
         GL::Renderer::BlendFunction::SourceAlpha,
@@ -64,19 +65,67 @@ void Renderer::render(const World& world, const Camera& camera, const World::Ray
     const Matrix4 viewProjection = camera.viewProjectionMatrix();
     const Float chunkWorldSize = world.chunkSizeInWorldUnits();
 
-    // 1 draw call per chunk!
+    // Extract 6 view frustum planes from viewProjection matrix for Frustum Culling
+    // Plane: ax + by + cz + d = 0
+    std::array<Vector4, 6> planes;
+    // Left
+    planes[0] = viewProjection.row(3) + viewProjection.row(0);
+    // Right
+    planes[1] = viewProjection.row(3) - viewProjection.row(0);
+    // Bottom
+    planes[2] = viewProjection.row(3) + viewProjection.row(1);
+    // Top
+    planes[3] = viewProjection.row(3) - viewProjection.row(1);
+    // Near
+    planes[4] = viewProjection.row(3) + viewProjection.row(2);
+    // Far
+    planes[5] = viewProjection.row(3) - viewProjection.row(2);
+
+    // Normalize planes
+    for(auto& p : planes) {
+        Float len = p.xyz().length();
+        if(len > 1e-6f) p /= len;
+    }
+
+    _lastDrawnChunks = 0;
+
+    // Render visible chunks only
     for(const auto& entry : world.chunks()) {
         const Chunk& chunk = entry.second;
         if(!chunk.hasMesh()) continue;
 
-        Vector3 chunkPos{
+        Vector3 minPos{
             Float(chunk.chunkCoord().x()) * chunkWorldSize,
             0.0f,
             Float(chunk.chunkCoord().y()) * chunkWorldSize
         };
+        Vector3 maxPos{
+            minPos.x() + chunkWorldSize,
+            25.0f, // Max possible world height
+            minPos.z() + chunkWorldSize
+        };
 
-        _shader.setTransformationProjectionMatrix(viewProjection * Matrix4::translation(chunkPos));
+        // AABB vs Frustum culling test
+        bool outside = false;
+        for(const auto& plane : planes) {
+            // Find positive vertex along plane normal
+            Vector3 pVertex{
+                plane.x() > 0.0f ? maxPos.x() : minPos.x(),
+                plane.y() > 0.0f ? maxPos.y() : minPos.y(),
+                plane.z() > 0.0f ? maxPos.z() : minPos.z()
+            };
+
+            if(Math::dot(plane.xyz(), pVertex) + plane.w() < 0.0f) {
+                outside = true;
+                break;
+            }
+        }
+
+        if(outside) continue; // Culled! Skip drawing this chunk completely
+
+        _shader.setTransformationProjectionMatrix(viewProjection * Matrix4::translation(minPos));
         _shader.draw(chunk.mesh());
+        _lastDrawnChunks++;
     }
 
     // Render hover highlight overlay if hovering a valid tile
@@ -97,7 +146,7 @@ void Renderer::render(const World& world, const Camera& camera, const World::Ray
 
             // Scale to match height and slightly expand for outline overlay
             Matrix4 model = Matrix4::translation(tilePos) *
-                            Matrix4::scaling({1.02f, t.height, 1.02f});
+                            Matrix4::scaling({1.02f, t.height*1.02f, 1.02f});
 
             _flatShader.setColor(Color4{1.0f, 0.95f, 0.2f, 0.55f}) // Bright yellow/gold highlight
                        .setTransformationProjectionMatrix(viewProjection * model);
