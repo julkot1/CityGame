@@ -12,6 +12,11 @@ add_executable(app
     input/Input.cpp
     rendering/Renderer.h
     rendering/Renderer.cpp
+    world/Tile.h
+    world/Chunk.h
+    world/Chunk.cpp
+    world/World.h
+    world/World.cpp
 )
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

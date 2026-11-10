@@ -8,9 +8,9 @@ namespace Magnum {
 
 class CameraController {
     public:
-        explicit CameraController(Camera& camera, Float panSpeed = 6.0f, Float rotateSpeed = 1.5f);
+        explicit CameraController(Camera& camera, Float panSpeed = 35.0f, Float rotateSpeed = 1.5f);
 
-        void update(const Input& input, Float dt);
+        void update(const Input& input, Float dt, const Vector3& minBounds = Vector3{-1e6f}, const Vector3& maxBounds = Vector3{1e6f});
 
         void setPanSpeed(Float speed) { _panSpeed = speed; }
         Float panSpeed() const { return _panSpeed; }
@@ -20,7 +20,7 @@ class CameraController {
 
     private:
         Camera& _camera;
-        Float _panSpeed{6.0f};
+        Float _panSpeed{100.0f};
         Float _rotateSpeed{1.5f};
 };
 

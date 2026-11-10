@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <Magnum/Math/Functions.h>
+#include <algorithm>
 
 namespace Magnum {
 
@@ -19,9 +20,14 @@ void Camera::setViewport(const Vector2i& viewportSize) {
             45.0_degf,
             Vector2{viewportSize}.aspectRatio(),
             0.1f,
-            100.0f
+            1000.0f
         );
     }
+}
+
+void Camera::clampTarget(const Vector3& minBounds, const Vector3& maxBounds) {
+    _target.x() = Math::clamp(_target.x(), minBounds.x(), maxBounds.x());
+    _target.z() = Math::clamp(_target.z(), minBounds.z(), maxBounds.z());
 }
 
 void Camera::move(const Vector3& offset) {
@@ -34,7 +40,7 @@ void Camera::rotate(Rad deltaYaw, Rad deltaPitch) {
 }
 
 void Camera::zoom(Float delta) {
-    _distance = Math::clamp(_distance - delta * 0.5f, 1.5f, 30.0f);
+    _distance = Math::clamp(_distance - delta * 1.5f, 2.0f, 120.0f);
 }
 
 Vector3 Camera::forward() const {
