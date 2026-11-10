@@ -21,13 +21,15 @@ void World::setGenerator(std::shared_ptr<WorldGenerator> generator) {
     init();
 }
 
-void World::init() {
+void World::init(Int chunkWidth, Int chunkHeight) {
+    _chunkWidth = chunkWidth;
+    _chunkHeight = chunkHeight;
     _chunks.clear();
 
-    const Int minCX = -WorldChunkWidth / 2;
-    const Int maxCX = minCX + WorldChunkWidth - 1;
-    const Int minCZ = -WorldChunkHeight / 2;
-    const Int maxCZ = minCZ + WorldChunkHeight - 1;
+    const Int minCX = -_chunkWidth / 2;
+    const Int maxCX = minCX + _chunkWidth - 1;
+    const Int minCZ = -_chunkHeight / 2;
+    const Int maxCZ = minCZ + _chunkHeight - 1;
 
     for(Int cz = minCZ; cz <= maxCZ; ++cz) {
         for(Int cx = minCX; cx <= maxCX; ++cx) {

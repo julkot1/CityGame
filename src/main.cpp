@@ -4,13 +4,19 @@
 #include "rendering/Renderer.h"
 #include "world/World.h"
 #include "world/WorldInputHandler.h"
+#include "world/WorldStorage.h"
+#include "world/RandomWorldGenerator.h"
+#include "ui/MenuManager.h"
 #include <Corrade/Containers/StringView.h>
 #include <Corrade/Utility/Debug.h>
 #include <Corrade/Utility/FormatStl.h>
 #include <Magnum/GL/Context.h>
 #include <Magnum/GL/Version.h>
+#include <Magnum/GL/Renderer.h>
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/Timeline.h>
+#include <Magnum/ImGuiIntegration/Context.hpp>
+#include <imgui.h>
 
 using namespace Magnum;
 
@@ -27,6 +33,9 @@ class MyApplication: public Platform::Application {
         void pointerReleaseEvent(PointerEvent& event) override;
         void pointerMoveEvent(PointerMoveEvent& event) override;
         void scrollEvent(ScrollEvent& event) override;
+        void textInputEvent(TextInputEvent& event) override;
+
+        MenuManager _menuManager;
 
         World _world{1.0f};
         Renderer _renderer;
@@ -36,77 +45,156 @@ class MyApplication: public Platform::Application {
         Input _input;
         WorldInputHandler _worldInputHandler{_world, _camera};
 
+        ImGuiIntegration::Context _imgui{NoCreate};
+
         UnsignedInt _fpsFrameCount{0};
         Float _fpsTimeAccumulator{0.0f};
 };
 
 MyApplication::MyApplication(const Arguments& arguments):
-    Platform::Application{arguments},
+    Platform::Application{arguments, Configuration{}.setTitle("City Builder").setSize({1280, 720})},
     _camera{framebufferSize()},
     _cameraController{_camera}
 {
     _renderer.setViewport(framebufferSize());
 
-    Debug{} << "CityBuilder Fixed-Size World Initialized!";
-    Debug{} << "World Dimensions:" << World::WorldChunkWidth << "x" << World::WorldChunkHeight << "chunks ("
-            << (World::WorldChunkWidth * Chunk::Size) << "x" << (World::WorldChunkHeight * Chunk::Size) << "tiles)";
-    Debug{} << "Total Chunks:" << _world.chunks().size();
-    Debug{} << "Camera bounded within world bounds ["
-            << _world.minWorldX() << "," << _world.minWorldZ() << "] to ["
-            << _world.maxWorldX() << "," << _world.maxWorldZ() << "]";
+    // Initialize ImGui integration with custom font size
+    _imgui = ImGuiIntegration::Context(Vector2{windowSize()}/dpiScaling(),
+                                       windowSize(), framebufferSize());
 
+    // Setup ImGui Dark styling with rounded buttons
+    ImGui::StyleColorsDark();
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = 8.0f;
+    style.FrameRounding = 6.0f;
+    style.ItemSpacing = ImVec2(12, 10);
+    
+    _menuManager.applyCustomTheme();
+    // Setup Menu actions
+    _menuManager.setOnCreateWorld([this](const WorldCreationParams& params) {
+        // Apply generator parameters
+        auto randGen = dynamic_cast<RandomWorldGenerator*>(_world.generator());
+        if(randGen) {
+            randGen->setSeed(params.seed);
+            randGen->setSeaLevel(params.seaLevel);
+        }
+
+        _world.init(params.worldWidthChunks, params.worldHeightChunks);
+        WorldStorage::saveToFile(_world, "world.save");
+
+        // Reset camera target to center of new world
+        _camera.setTarget(Vector3{0.0f});
+    });
+    _menuManager.setOnSaveWorld([this]() {
+        WorldStorage::saveToFile(_world, "world.save");
+    });
+    _menuManager.setOnExit([this]() {
+        exit();
+    });
+
+    Debug{} << "CityBuilder Initialized!";
     _timeline.start();
 }
 
 void MyApplication::viewportEvent(ViewportEvent& event) {
     _renderer.setViewport(event.framebufferSize());
     _camera.setViewport(event.framebufferSize());
+    _imgui.relayout(Vector2{event.windowSize()}/event.dpiScaling(),
+                    event.windowSize(), event.framebufferSize());
 }
 
 void MyApplication::keyPressEvent(KeyEvent& event) {
+    if(_imgui.handleKeyPressEvent(event)) return;
+
+    if(event.key() == KeyEvent::Key::Esc) {
+        _menuManager.toggleMenu();
+        event.setAccepted();
+        return;
+    }
+
     _input.keyPressEvent(event);
 }
 
 void MyApplication::keyReleaseEvent(KeyEvent& event) {
+    if(_imgui.handleKeyReleaseEvent(event)) return;
     _input.keyReleaseEvent(event);
 }
 
 void MyApplication::pointerPressEvent(PointerEvent& event) {
+    if(_imgui.handlePointerPressEvent(event)) return;
     _input.pointerPressEvent(event);
 }
 
 void MyApplication::pointerReleaseEvent(PointerEvent& event) {
+    if(_imgui.handlePointerReleaseEvent(event)) return;
     _input.pointerReleaseEvent(event);
 }
 
 void MyApplication::pointerMoveEvent(PointerMoveEvent& event) {
+    if(_imgui.handlePointerMoveEvent(event)) return;
     _input.pointerMoveEvent(event);
 }
 
 void MyApplication::scrollEvent(ScrollEvent& event) {
+    if(_imgui.handleScrollEvent(event)) return;
     _input.scrollEvent(event);
+}
+
+void MyApplication::textInputEvent(TextInputEvent& event) {
+    if(_imgui.handleTextInputEvent(event)) return;
 }
 
 void MyApplication::drawEvent() {
     Float dt = _timeline.previousFrameDuration();
 
-    // Restrict camera movement strictly within world boundaries
-    const Vector3 minBounds{_world.minWorldX(), 0.0f, _world.minWorldZ()};
-    const Vector3 maxBounds{_world.maxWorldX(), 0.0f, _world.maxWorldZ()};
-    _cameraController.update(_input, dt, minBounds, maxBounds);
+    _imgui.newFrame();
 
-    // Update world input (raycasting, hover state, left/right clicks)
-    _worldInputHandler.update(_input, framebufferSize());
+    // Enable OS text input subsystem when ImGui text fields request it
+    if(ImGui::GetIO().WantTextInput) {
+        startTextInput();
+    } else {
+        stopTextInput();
+    }
 
-    _renderer.render(_world, _camera, _worldInputHandler.hoverHit());
+    if(_menuManager.isMenuOpen()) {
+        // Slowly rotate camera around world in background for cinematic panorama
+        _camera.rotate(Rad{0.08f * dt}, 0.0_radf);
+
+        // Render world in background first
+        _renderer.render(_world, _camera);
+
+        // Draw menu UI through MenuManager
+        _menuManager.draw(windowSize());
+    } else {
+        // Playing state: update camera and world inputs
+        const Vector3 minBounds{_world.minWorldX(), 0.0f, _world.minWorldZ()};
+        const Vector3 maxBounds{_world.maxWorldX(), 0.0f, _world.maxWorldZ()};
+        _cameraController.update(_input, dt, minBounds, maxBounds);
+
+        // Update world input (raycasting, hover state, left/right clicks)
+        _worldInputHandler.update(_input, framebufferSize());
+
+        _renderer.render(_world, _camera, _worldInputHandler.hoverHit());
+    }
+
+    // Enable/disable appropriate GL states for 2D UI rendering
+    GL::Renderer::enable(GL::Renderer::Feature::Blending);
+    GL::Renderer::enable(GL::Renderer::Feature::ScissorTest);
+    GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
+    GL::Renderer::disable(GL::Renderer::Feature::FaceCulling);
+
+    // Render ImGui overlay on top
+    _imgui.drawFrame();
+
+    // Restore 3D states
+    GL::Renderer::disable(GL::Renderer::Feature::ScissorTest);
+    GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
 
     _fpsFrameCount++;
     _fpsTimeAccumulator += dt;
     if(_fpsTimeAccumulator >= 1.0f) {
         Float fps = Float(_fpsFrameCount) / _fpsTimeAccumulator;
         Float frameTimeMs = (_fpsTimeAccumulator / Float(_fpsFrameCount)) * 1000.0f;
-        Debug{} << "FPS:" << fps << "| Frame time:" << frameTimeMs << "ms | Chunks:" << _world.chunks().size();
-
         setWindowTitle(Utility::formatString("City Builder - {:.1f} FPS ({:.2f} ms)", fps, frameTimeMs));
 
         _fpsFrameCount = 0;

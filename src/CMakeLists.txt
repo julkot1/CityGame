@@ -26,6 +26,8 @@ add_executable(app
     world/WorldStorage.cpp
     world/WorldInputHandler.h
     world/WorldInputHandler.cpp
+    ui/MenuManager.h
+    ui/MenuManager.cpp
 )
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -34,6 +36,7 @@ target_link_libraries(app PRIVATE
     Magnum::Application
     Magnum::GL
     Magnum::Magnum
-    Magnum::Shaders)
+    Magnum::Shaders
+    MagnumIntegration::ImGui)
 
 set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT app)

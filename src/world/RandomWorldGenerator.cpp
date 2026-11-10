@@ -46,7 +46,7 @@ Tile RandomWorldGenerator::classifyBiome(Float elevation, Float moisture, bool i
     if(elevation <= _seaLevel || (isRiver && elevation < _seaLevel + 0.5f)) {
         t.height = _seaLevel;
         t.type = TileType::Water;
-        t.color = isRiver ? 0x458588_rgbf : 0x3d7ea6_rgbf;
+        t.color = 0x3d7ea6_rgbf;
         return t;
     }
 
