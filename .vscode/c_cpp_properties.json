@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "includePath": [
+                "${workspaceFolder}/corrade/src",
+                "${workspaceFolder}/magnum/src",
+                "${workspaceFolder}/build/corrade/src",
+                "${workspaceFolder}/build/magnum/src",
+                "/usr/include/SDL2",
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

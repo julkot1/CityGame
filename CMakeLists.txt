@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.5...3.10)
+project(MyApplication)
+set(MAGNUM_WITH_SDL2APPLICATION ON CACHE BOOL "" FORCE)
+set(MAGNUM_WITH_GLFWAPPLICATION OFF CACHE BOOL "" FORCE)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/modules/" ${CMAKE_MODULE_PATH})
+
+add_subdirectory(corrade EXCLUDE_FROM_ALL)
+add_subdirectory(magnum EXCLUDE_FROM_ALL)
+
+add_subdirectory(src)
