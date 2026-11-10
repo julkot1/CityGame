@@ -16,13 +16,13 @@ void GameHUD::update(Float dt) {
     }
 }
 
-void GameHUD::draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks) {
+void GameHUD::draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks, TimeManager* timeManager) {
     // Top-left corner overlay
     constexpr float padding = 12.0f;
     ImVec2 overlayPos(padding, padding);
 
     ImGui::SetNextWindowPos(overlayPos, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.65f); // Semi-transparent dark background
+    ImGui::SetNextWindowBgAlpha(0.70f); // Semi-transparent dark background
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
                              ImGuiWindowFlags_AlwaysAutoResize |
@@ -50,8 +50,39 @@ void GameHUD::draw(const Vector2i& windowSize, UnsignedInt renderedChunks, Unsig
 
         ImGui::Text("Chunks: %u / %u (Culled: %u)",
                     renderedChunks, totalChunks, totalChunks - renderedChunks);
+
+
         ImGui::TextDisabled("Press [ESC] for Menu");
 
+        ImGui::End();
+    }
+    ImVec2 topRightPos(windowSize.x() - padding, padding);
+    ImGui::SetNextWindowPos(topRightPos, ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowBgAlpha(0.70f); 
+    if(ImGui::Begin("##GameTimeHUD", nullptr, flags)) {
+         if(timeManager) {
+            std::string timeStr = timeManager->formattedTime();
+            const char* timeIcon = timeManager->isNight() ? "[Night]" : "[Day]";
+            ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.4f, 1.0f), "Time: %s %s", timeStr.c_str(), timeIcon);
+
+            // Play / Pause button
+            if(ImGui::Button(timeManager->isPaused() ? "Play" : "Pause")) {
+                timeManager->togglePaused();
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("1x")) timeManager->setTimeSpeed(1.0f);
+            ImGui::SameLine();
+            if(ImGui::Button("5x")) timeManager->setTimeSpeed(5.0f);
+            ImGui::SameLine();
+            if(ImGui::Button("20x")) timeManager->setTimeSpeed(20.0f);
+
+            // Slider to scrub time of day
+            float t = timeManager->timeOfDay();
+            if(ImGui::SliderFloat("##TimeOfDay", &t, 0.0f, 1.0f, "Scrub: %.2f")) {
+                timeManager->setTimeOfDay(t);
+            }
+
+        }
         ImGui::End();
     }
 }

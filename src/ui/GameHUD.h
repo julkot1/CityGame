@@ -2,18 +2,19 @@
 
 #include <Magnum/Magnum.h>
 #include <Magnum/Math/Vector2.h>
+#include "world/TimeManager.h"
 
 namespace Magnum {
 
 /**
- * Handles in-game HUD overlay rendering (FPS counter, stats, tools, etc.).
+ * Handles in-game HUD overlay rendering (FPS counter, time controls, stats, etc.).
  */
 class GameHUD {
     public:
         explicit GameHUD();
 
         void update(Float dt);
-        void draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks);
+        void draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks, TimeManager* timeManager = nullptr);
 
         Float currentFps() const { return _currentFps; }
         Float currentFrameTimeMs() const { return _currentFrameTimeMs; }

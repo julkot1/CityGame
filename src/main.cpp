@@ -3,6 +3,7 @@
 #include "input/Input.h"
 #include "rendering/Renderer.h"
 #include "world/World.h"
+#include "world/TimeManager.h"
 #include "world/WorldInputHandler.h"
 #include "world/WorldStorage.h"
 #include "world/RandomWorldGenerator.h"
@@ -38,6 +39,7 @@ class MyApplication: public Platform::Application {
 
         MenuManager _menuManager;
         GameHUD _gameHUD;
+        TimeManager _timeManager;
 
         World _world{1.0f};
         Renderer _renderer;
@@ -65,6 +67,10 @@ MyApplication::MyApplication(const Arguments& arguments):
 
     _imgui = ImGuiIntegration::Context(Vector2{windowSize()}/dpiScaling(),
                                        windowSize(), framebufferSize());
+
+    // Initialize baseline UI scale
+    const Float baseHeight = 720.0f;
+    ImGui::GetIO().FontGlobalScale = Math::max(0.75f, Float(windowSize().y()) / baseHeight);
     
     _menuManager.applyCustomTheme();
 
@@ -94,6 +100,12 @@ MyApplication::MyApplication(const Arguments& arguments):
 void MyApplication::viewportEvent(ViewportEvent& event) {
     _renderer.setViewport(event.framebufferSize());
     _camera.setViewport(event.framebufferSize());
+
+    // Responsive UI scale based on window height (baseline 720p)
+    const Float baseHeight = 720.0f;
+    const Float uiScale = Math::max(0.75f, Float(event.windowSize().y()) / baseHeight);
+    ImGui::GetIO().FontGlobalScale = uiScale;
+
     _imgui.relayout(Vector2{event.windowSize()}/event.dpiScaling(),
                     event.windowSize(), event.framebufferSize());
 }
@@ -142,6 +154,16 @@ void MyApplication::textInputEvent(TextInputEvent& event) {
 void MyApplication::drawEvent() {
     Float dt = _timeline.previousFrameDuration();
 
+    _timeManager.update(dt);
+
+    // Synchronize atmospheric lighting & sky clear color with TimeManager
+    GL::Renderer::setClearColor(_timeManager.skyColor());
+    _renderer.terrainShader()
+        .setLightDirection(_timeManager.lightDirection())
+        .setLightColor(_timeManager.lightColor())
+        .setAmbientColor(_timeManager.ambientColor())
+        .setSkyColor(_timeManager.skyColor());
+
     _imgui.newFrame();
 
     // Enable OS text input subsystem when ImGui text fields request it
@@ -171,9 +193,9 @@ void MyApplication::drawEvent() {
 
         _renderer.render(_world, _camera, _worldInputHandler.hoverHit());
 
-        // In-game HUD: displays rendered vs culled chunk count
+        // In-game HUD: displays rendered vs culled chunk count and day/night time controls
         _gameHUD.update(dt);
-        _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(), _world.chunks().size());
+        _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(), _world.chunks().size(), &_timeManager);
     }
 
     // Enable/disable appropriate GL states for 2D UI rendering
