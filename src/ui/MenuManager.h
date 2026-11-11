@@ -16,7 +16,13 @@ enum class AppState {
 struct WorldCreationParams {
     int seed{1337};
     std::string seedString{"1337"};
+    int archetype{0};          // 0 = River Basin, 1 = Archipelago, 2 = Highland Plateaus, 3 = Great Plains
     float seaLevel{4.5f};
+    float flatness{0.75f};     // 0.0 (Rolling Hills) to 1.0 (Wide Flat Terraces)
+    float mountainScale{1.0f}; // 0.0 to 2.0
+    float riverIntensity{1.0f};// 0.0 to 2.0
+    float forestDensity{1.0f}; // 0.0 to 2.0
+    float resourceDensity{1.0f};// 0.0 to 2.0
     int worldWidthChunks{8};
     int worldHeightChunks{8};
 };

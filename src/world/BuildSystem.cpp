@@ -138,7 +138,7 @@ bool BuildSystem::executeAction(World& world, const World::RaycastHit& hit) {
             Tile& t = chunk->tile(lx, lz);
             if(t.type == TileType::Road) {
                 t.type = TileType::Grass;
-                t.color = Color3{0x689d6a_rgbf};
+                t.color = Color3{0x566944_rgbf};
             }
             // Update surrounding roads so they close connection
             updateRoadConnectionsAround(world, hit.chunkCoord, lx, lz);

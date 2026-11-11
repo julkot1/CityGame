@@ -27,6 +27,7 @@ class TerrainShader: public GL::AbstractShaderProgram {
         TerrainShader& setAmbientColor(const Color3& color);
         TerrainShader& setSkyColor(const Color3& color);
         TerrainShader& setFogDistances(Float nearDist, Float farDist);
+        TerrainShader& setTime(Float timeSeconds);
 
     private:
         Int _cameraPositionUniform{0};
@@ -38,6 +39,7 @@ class TerrainShader: public GL::AbstractShaderProgram {
         Int _skyColorUniform{6};
         Int _fogNearUniform{7};
         Int _fogFarUniform{8};
+        Int _timeUniform{9};
 };
 
 }

@@ -88,7 +88,7 @@ void MenuManager::drawMainMenu(const Vector2i& windowSize) {
 
 void MenuManager::drawWorldCreationDialog(const Vector2i& windowSize) {
     Vector2 winSize{windowSize};
-    ImVec2 dialogSize(440.0f, 380.0f);
+    ImVec2 dialogSize(480.0f, 580.0f);
     ImVec2 dialogPos((winSize.x() - dialogSize.x) * 0.5f, (winSize.y() - dialogSize.y) * 0.5f);
 
     ImGui::SetNextWindowPos(dialogPos, ImGuiCond_Always);
@@ -100,57 +100,93 @@ void MenuManager::drawWorldCreationDialog(const Vector2i& windowSize) {
                              ImGuiWindowFlags_NoTitleBar;
 
     if(ImGui::Begin("##CreateWorldDialog", nullptr, flags)) {
-        ImGui::Dummy(ImVec2(0, 5));
+        ImGui::Dummy(ImVec2(0, 4));
 
         // Header
-        ImGui::TextColored(UIStyle::Colors::AmberGold, "NEW WORLD CREATION");
-        ImGui::TextDisabled("Configure procedural terrain parameters");
+        ImGui::TextColored(UIStyle::Colors::AmberGold, "NEW WORLD CHARTER // TERRAIN SURVEY");
+        ImGui::TextDisabled("Configure 19th-century geological & resource parameters");
         ImGui::Separator();
-        ImGui::Dummy(ImVec2(0, 6));
+        ImGui::Dummy(ImVec2(0, 4));
 
-        // Seed parameter
+        // 1. Seed parameter
         ImGui::Text("WORLD SEED");
-        ImGui::PushItemWidth(260.0f);
+        ImGui::PushItemWidth(300.0f);
         ImGui::InputText("##seed", &_creationParams.seedString);
         ImGui::PopItemWidth();
         ImGui::SameLine();
-        if(ImGui::Button("Randomize", ImVec2(120.0f, 0.0f))) {
+        if(ImGui::Button("Randomize", ImVec2(130.0f, 0.0f))) {
             std::random_device rd;
             int seed = static_cast<int>(rd() % 100000);
             _creationParams.seed = seed;
             _creationParams.seedString = std::to_string(seed);
         }
 
+        ImGui::Dummy(ImVec2(0, 4));
+
+        // 2. Geography Archetype
+        ImGui::Text("GEOGRAPHY ARCHETYPE");
+        const char* archetypes[] = {
+            "River Basin & Alluvial Valleys (Balanced)",
+            "Coastal Archipelago & Harbors (Islands)",
+            "Highland Plateaus & Moorlands (Terraced)",
+            "Great Industrial Plains (Expansive Flatlands)"
+        };
+        ImGui::PushItemWidth(-1.0f);
+        ImGui::Combo("##archetype", &_creationParams.archetype, archetypes, IM_ARRAYSIZE(archetypes));
+        ImGui::PopItemWidth();
+
+        ImGui::Dummy(ImVec2(0, 4));
+
+        // 3. Map Size
+        ImGui::Text("WORLD DIMENSIONS");
+        const char* sizes[] = {
+            "Small (4x4 chunks)",
+            "Standard (8x8 chunks)",
+            "Large (12x12 chunks)",
+            "Grand Empire (16x16 chunks)"
+        };
+        static int currentSizeIndex = 1;
+        ImGui::PushItemWidth(-1.0f);
+        if(ImGui::Combo("##worldsize", &currentSizeIndex, sizes, IM_ARRAYSIZE(sizes))) {
+            const int dimTable[] = {4, 8, 12, 16};
+            _creationParams.worldWidthChunks = dimTable[currentSizeIndex];
+            _creationParams.worldHeightChunks = dimTable[currentSizeIndex];
+        }
+        ImGui::PopItemWidth();
+
         ImGui::Dummy(ImVec2(0, 6));
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0, 4));
+
+        // 4. Geological & Ecological Sliders
+        ImGui::PushItemWidth(-1.0f);
+
+        ImGui::Text("PLATEAU FLATNESS (CITY BUILDABILITY)");
+        ImGui::SliderFloat("##flatness", &_creationParams.flatness, 0.0f, 1.0f, "%.2f");
 
         ImGui::Text("SEA LEVEL / WATER COVERAGE");
-        ImGui::SliderFloat("##sealevel", &_creationParams.seaLevel, 2.0f, 8.0f, "%.1f m");
+        ImGui::SliderFloat("##sealevel", &_creationParams.seaLevel, 2.5f, 7.5f, "%.1f m");
 
-        ImGui::Dummy(ImVec2(0, 6));
+        ImGui::Text("MOUNTAIN & RIDGE RELIEF");
+        ImGui::SliderFloat("##mountains", &_creationParams.mountainScale, 0.0f, 2.0f, "%.2fx");
 
-        // Map Size
-        ImGui::Text("WORLD DIMENSIONS");
-        const char* sizes[] = {"Small (4x4 chunks)", "Standard (8x8 chunks)", "Large (12x12 chunks)"};
-        static int currentSizeIndex = 1;
-        if(ImGui::Combo("##worldsize", &currentSizeIndex, sizes, IM_ARRAYSIZE(sizes))) {
-            if(currentSizeIndex == 0) {
-                _creationParams.worldWidthChunks = 4;
-                _creationParams.worldHeightChunks = 4;
-            } else if(currentSizeIndex == 1) {
-                _creationParams.worldWidthChunks = 8;
-                _creationParams.worldHeightChunks = 8;
-            } else {
-                _creationParams.worldWidthChunks = 12;
-                _creationParams.worldHeightChunks = 12;
-            }
-        }
+        ImGui::Text("RIVER & ESTUARY NETWORK");
+        ImGui::SliderFloat("##rivers", &_creationParams.riverIntensity, 0.0f, 2.0f, "%.2fx");
 
-        ImGui::Dummy(ImVec2(0, 16));
+        ImGui::Text("WOODLAND & FLORA DENSITY");
+        ImGui::SliderFloat("##forests", &_creationParams.forestDensity, 0.0f, 2.0f, "%.2fx");
+
+        ImGui::Text("MINERAL SEAMS (COAL / IRON / COPPER)");
+        ImGui::SliderFloat("##resources", &_creationParams.resourceDensity, 0.0f, 2.0f, "%.2fx");
+
+        ImGui::PopItemWidth();
+
+        ImGui::Dummy(ImVec2(0, 10));
         ImGui::Separator();
         ImGui::Dummy(ImVec2(0, 6));
 
         // Action buttons: Cancel and Generate
-        float btnWidth = 190.0f;
+        float btnWidth = 210.0f;
         ImGui::SetCursorPosX((dialogSize.x - (btnWidth * 2.0f + 12.0f)) * 0.5f);
 
         if(ImGui::Button("CANCEL", ImVec2(btnWidth, 40.0f))) {

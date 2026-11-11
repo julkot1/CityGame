@@ -31,6 +31,13 @@ class EntityModelRegistry {
         static void buildRock(const Vector3& pos, Float scale, UnsignedInt seed,
                               std::vector<ChunkVertex>& vertices,
                               std::vector<UnsignedInt>& indices);
+        static void buildOreDeposit(const Vector3& pos, Float scale, UnsignedInt seed,
+                                    EntityType oreType,
+                                    std::vector<ChunkVertex>& vertices,
+                                    std::vector<UnsignedInt>& indices);
+        static void buildAncientRuins(const Vector3& pos, Float scale, UnsignedInt seed,
+                                      std::vector<ChunkVertex>& vertices,
+                                      std::vector<UnsignedInt>& indices);
         static void buildCobblestoneRoad(const Vector3& pos,
                                         std::vector<ChunkVertex>& vertices,
                                         std::vector<UnsignedInt>& indices,

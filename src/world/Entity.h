@@ -11,6 +11,10 @@ enum class EntityType : UnsignedShort {
     TreePine,
     Rock,
     RoadCobblestone,
+    CoalDeposit,
+    IronDeposit,
+    CopperDeposit,
+    AncientRuins
 };
 
 struct Entity {

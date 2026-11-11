@@ -120,73 +120,78 @@ void Chunk::buildMesh(Float tileSpacing) {
                 indices.push_back(base + 2);
             }
 
+            // Helper to emit a layered vertical cliff wall:
+            // Top turf/crust lip (0.09m thick) + exposed dark Victorian soil or sedimentary slate underneath
+            auto emitLayeredWall = [&](const Vector2& p0, const Vector2& p1, Float bottomH, Float topH, const Vector3& wallNormal) {
+                Float drop = topH - bottomH;
+                if(drop <= 0.001f) return;
+
+                const Float lipThickness = Math::min(0.09f, drop);
+                const Float lipBottomH = topH - lipThickness;
+
+                // Top crust color (slightly rich shaded version of top surface)
+                Color3 lipColor = baseCol * 0.90f;
+
+                // Emit top turf/crust lip
+                UnsignedInt b = vertices.size();
+                Float lipBottomAO = (drop > lipThickness + 0.01f) ? 0.85f : 0.70f;
+                vertices.push_back({{p0.x(), lipBottomH, p0.y()}, wallNormal, lipColor, lipBottomAO});
+                vertices.push_back({{p1.x(), lipBottomH, p1.y()}, wallNormal, lipColor, lipBottomAO});
+                vertices.push_back({{p1.x(),       topH, p1.y()}, wallNormal, lipColor, 1.0f});
+                vertices.push_back({{p0.x(),       topH, p0.y()}, wallNormal, lipColor, 1.0f});
+                indices.push_back(b + 0); indices.push_back(b + 1); indices.push_back(b + 2);
+                indices.push_back(b + 0); indices.push_back(b + 2); indices.push_back(b + 3);
+
+                // If wall extends deeper than the top crust, emit exposed earth or slate cliff below
+                if(lipBottomH > bottomH + 0.005f) {
+                    Color3 subWallColor;
+                    if(t.type == TileType::Grass || t.type == TileType::Forest || t.type == TileType::Heath) {
+                        // Shallow terrace steps show rich dark Victorian peat/soil; taller cliffs expose dark slate rock
+                        subWallColor = (drop <= 0.45f)
+                            ? Color3{0.34f, 0.26f, 0.19f}  // Rich dark soil/peat
+                            : Color3{0.31f, 0.32f, 0.35f}; // Exposed Victorian slate cliff
+                    } else if(t.type == TileType::Sand || t.type == TileType::Clay) {
+                        subWallColor = Color3{0.46f, 0.36f, 0.28f}; // Compacted clay/siltstone
+                    } else {
+                        subWallColor = Color3{0.30f, 0.32f, 0.35f}; // Deep basalt/slate rock
+                    }
+
+                    b = vertices.size();
+                    vertices.push_back({{p0.x(),    bottomH, p0.y()}, wallNormal, subWallColor, 0.65f});
+                    vertices.push_back({{p1.x(),    bottomH, p1.y()}, wallNormal, subWallColor, 0.65f});
+                    vertices.push_back({{p1.x(), lipBottomH, p1.y()}, wallNormal, subWallColor, 0.88f});
+                    vertices.push_back({{p0.x(), lipBottomH, p0.y()}, wallNormal, subWallColor, 0.88f});
+                    indices.push_back(b + 0); indices.push_back(b + 1); indices.push_back(b + 2);
+                    indices.push_back(b + 0); indices.push_back(b + 2); indices.push_back(b + 3);
+                }
+            };
+
             // Front (+Z): Only emit if neighbor in +Z direction is missing or lower
             Float frontH = (z < Size - 1) ? tile(x, z + 1).height : 0.0f;
             if(h > frontH) {
-                base = vertices.size();
-                Vector3 frontNormal{0.0f, 0.0f, 1.0f};
-                // Wall vertices: base gets slight bottom contact AO (0.75), top vertices full or slight shade
-                vertices.push_back({{cx - halfSize, frontH, cz + halfSize}, frontNormal, baseCol, 0.70f});
-                vertices.push_back({{cx + halfSize, frontH, cz + halfSize}, frontNormal, baseCol, 0.70f});
-                vertices.push_back({{cx + halfSize,      h, cz + halfSize}, frontNormal, baseCol, 1.0f});
-                vertices.push_back({{cx - halfSize,      h, cz + halfSize}, frontNormal, baseCol, 1.0f});
-                indices.push_back(base + 0);
-                indices.push_back(base + 1);
-                indices.push_back(base + 2);
-                indices.push_back(base + 0);
-                indices.push_back(base + 2);
-                indices.push_back(base + 3);
+                emitLayeredWall({cx - halfSize, cz + halfSize}, {cx + halfSize, cz + halfSize},
+                                frontH, h, Vector3{0.0f, 0.0f, 1.0f});
             }
 
             // Back (-Z): Only emit if neighbor in -Z direction is missing or lower
             Float backH = (z > 0) ? tile(x, z - 1).height : 0.0f;
             if(h > backH) {
-                base = vertices.size();
-                Vector3 backNormal{0.0f, 0.0f, -1.0f};
-                vertices.push_back({{cx + halfSize, backH, cz - halfSize}, backNormal, baseCol, 0.70f});
-                vertices.push_back({{cx - halfSize, backH, cz - halfSize}, backNormal, baseCol, 0.70f});
-                vertices.push_back({{cx - halfSize,     h, cz - halfSize}, backNormal, baseCol, 1.0f});
-                vertices.push_back({{cx + halfSize,     h, cz - halfSize}, backNormal, baseCol, 1.0f});
-                indices.push_back(base + 0);
-                indices.push_back(base + 1);
-                indices.push_back(base + 2);
-                indices.push_back(base + 0);
-                indices.push_back(base + 2);
-                indices.push_back(base + 3);
+                emitLayeredWall({cx + halfSize, cz - halfSize}, {cx - halfSize, cz - halfSize},
+                                backH, h, Vector3{0.0f, 0.0f, -1.0f});
             }
 
             // Left (-X): Only emit if neighbor in -X direction is missing or lower
             Float leftH = (x > 0) ? tile(x - 1, z).height : 0.0f;
             if(h > leftH) {
-                base = vertices.size();
-                Vector3 leftNormal{-1.0f, 0.0f, 0.0f};
-                vertices.push_back({{cx - halfSize, leftH, cz - halfSize}, leftNormal, baseCol, 0.70f});
-                vertices.push_back({{cx - halfSize, leftH, cz + halfSize}, leftNormal, baseCol, 0.70f});
-                vertices.push_back({{cx - halfSize,     h, cz + halfSize}, leftNormal, baseCol, 1.0f});
-                vertices.push_back({{cx - halfSize,     h, cz - halfSize}, leftNormal, baseCol, 1.0f});
-                indices.push_back(base + 0);
-                indices.push_back(base + 1);
-                indices.push_back(base + 2);
-                indices.push_back(base + 0);
-                indices.push_back(base + 2);
-                indices.push_back(base + 3);
+                emitLayeredWall({cx - halfSize, cz - halfSize}, {cx - halfSize, cz + halfSize},
+                                leftH, h, Vector3{-1.0f, 0.0f, 0.0f});
             }
 
             // Right (+X): Only emit if neighbor in +X direction is missing or lower
             Float rightH = (x < Size - 1) ? tile(x + 1, z).height : 0.0f;
             if(h > rightH) {
-                base = vertices.size();
-                Vector3 rightNormal{1.0f, 0.0f, 0.0f};
-                vertices.push_back({{cx + halfSize, rightH, cz + halfSize}, rightNormal, baseCol, 0.70f});
-                vertices.push_back({{cx + halfSize, rightH, cz - halfSize}, rightNormal, baseCol, 0.70f});
-                vertices.push_back({{cx + halfSize,      h, cz - halfSize}, rightNormal, baseCol, 1.0f});
-                vertices.push_back({{cx + halfSize,      h, cz + halfSize}, rightNormal, baseCol, 1.0f});
-                indices.push_back(base + 0);
-                indices.push_back(base + 1);
-                indices.push_back(base + 2);
-                indices.push_back(base + 0);
-                indices.push_back(base + 2);
-                indices.push_back(base + 3);
+                emitLayeredWall({cx + halfSize, cz + halfSize}, {cx + halfSize, cz - halfSize},
+                                rightH, h, Vector3{1.0f, 0.0f, 0.0f});
             }
         }
     }

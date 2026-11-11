@@ -3,9 +3,11 @@
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Renderer.h>
 #include <Magnum/Math/Color.h>
+#include <Magnum/Math/Functions.h>
 #include <Corrade/Containers/ArrayView.h>
 #include <Corrade/Containers/ArrayViewStl.h>
 #include <vector>
+#include <cmath>
 
 namespace Magnum {
 
@@ -53,6 +55,88 @@ Renderer::Renderer() {
                   .setCount(indices.size())
                   .addVertexBuffer(_highlightVertexBuffer, 0, Shaders::FlatGL3D::Position{})
                   .setIndexBuffer(GL::Buffer::wrap(_highlightIndexBuffer.id(), GL::Buffer::TargetHint::ElementArray), 0, GL::MeshIndexType::UnsignedInt);
+
+    initCloudMesh();
+}
+
+void Renderer::initCloudMesh() {
+    // Build a multi-tiered 3D voxel cloud cluster using ChunkVertex format so it receives full sunlight & fog
+    std::vector<ChunkVertex> vertices;
+    std::vector<UnsignedInt> indices;
+
+    auto addCloudBox = [&](const Vector3& c0, const Vector3& c1, Float ao) {
+        const Color3 cloudCol{0.92f, 0.90f, 0.86f}; // Warm Victorian parchment-white cloud
+        struct Face { Vector3 n, v0, v1, v2, v3; };
+        Face faces[6] = {
+            {{ 0, 1, 0}, {c0.x(), c1.y(), c0.z()}, {c1.x(), c1.y(), c0.z()}, {c1.x(), c1.y(), c1.z()}, {c0.x(), c1.y(), c1.z()}},
+            {{ 0,-1, 0}, {c0.x(), c0.y(), c1.z()}, {c1.x(), c0.y(), c1.z()}, {c1.x(), c0.y(), c0.z()}, {c0.x(), c0.y(), c0.z()}},
+            {{ 0, 0, 1}, {c0.x(), c0.y(), c1.z()}, {c1.x(), c0.y(), c1.z()}, {c1.x(), c1.y(), c1.z()}, {c0.x(), c1.y(), c1.z()}},
+            {{ 0, 0,-1}, {c1.x(), c0.y(), c0.z()}, {c0.x(), c0.y(), c0.z()}, {c0.x(), c1.y(), c0.z()}, {c1.x(), c1.y(), c0.z()}},
+            {{-1, 0, 0}, {c0.x(), c0.y(), c0.z()}, {c0.x(), c0.y(), c1.z()}, {c0.x(), c1.y(), c1.z()}, {c0.x(), c1.y(), c0.z()}},
+            {{ 1, 0, 0}, {c1.x(), c0.y(), c1.z()}, {c1.x(), c0.y(), c0.z()}, {c1.x(), c1.y(), c0.z()}, {c1.x(), c1.y(), c1.z()}}
+        };
+        for(const auto& f : faces) {
+            UnsignedInt b = vertices.size();
+            Float faceAO = (f.n.y() < 0.0f) ? ao * 0.80f : ao;
+            vertices.push_back({f.v0, f.n, cloudCol, faceAO});
+            vertices.push_back({f.v1, f.n, cloudCol, faceAO});
+            vertices.push_back({f.v2, f.n, cloudCol, faceAO});
+            vertices.push_back({f.v3, f.n, cloudCol, faceAO});
+            indices.push_back(b + 0); indices.push_back(b + 2); indices.push_back(b + 1);
+            indices.push_back(b + 0); indices.push_back(b + 3); indices.push_back(b + 2);
+        }
+    };
+
+    // Main wide cloud belly + upper cumulus puffs + side wings
+    addCloudBox({-3.2f, 0.0f, -1.8f}, { 3.2f, 0.9f,  1.8f}, 0.90f);
+    addCloudBox({-2.0f, 0.8f, -1.3f}, { 1.6f, 1.8f,  1.3f}, 0.96f);
+    addCloudBox({-0.6f, 1.5f, -0.9f}, { 2.2f, 2.3f,  0.9f}, 1.00f);
+    addCloudBox({-4.4f, 0.1f, -1.1f}, {-2.4f, 0.8f,  1.2f}, 0.88f);
+    addCloudBox({ 2.2f, 0.2f, -1.2f}, { 4.2f, 1.0f,  1.0f}, 0.92f);
+
+    _cloudVertexBuffer = GL::Buffer{GL::Buffer::TargetHint::Array};
+    _cloudVertexBuffer.setData(Containers::arrayView(vertices), GL::BufferUsage::StaticDraw);
+
+    _cloudIndexBuffer = GL::Buffer{GL::Buffer::TargetHint::ElementArray};
+    _cloudIndexBuffer.setData(Containers::arrayView(indices), GL::BufferUsage::StaticDraw);
+
+    _cloudMesh = GL::Mesh{};
+    _cloudMesh.setCount(indices.size())
+              .addVertexBuffer(_cloudVertexBuffer, 0,
+                  GL::Attribute<0, Vector3>{},
+                  GL::Attribute<1, Vector3>{},
+                  GL::Attribute<2, Color3>{},
+                  GL::Attribute<3, Float>{})
+              .setIndexBuffer(_cloudIndexBuffer, 0, GL::MeshIndexType::UnsignedInt);
+}
+
+void Renderer::renderDriftingClouds(const World& world, const Matrix4&) {
+    if(world.chunks().empty()) return;
+
+    const Float minX = world.minWorldX() - 20.0f;
+    const Float maxX = world.maxWorldX() + 20.0f;
+    const Float minZ = world.minWorldZ() - 20.0f;
+    const Float maxZ = world.maxWorldZ() + 20.0f;
+    const Float spanX = Math::max(40.0f, maxX - minX);
+    const Float spanZ = Math::max(40.0f, maxZ - minZ);
+
+    // Render 14 drifting voxel clouds wrapping seamlessly across the sky bounds
+    constexpr int cloudCount = 14;
+    for(int i = 0; i < cloudCount; ++i) {
+        Float seedX = Float((i * 73 + 19) % 97) / 97.0f;
+        Float seedZ = Float((i * 41 + 53) % 89) / 89.0f;
+        Float speed = 1.1f + Float(i % 4) * 0.35f;
+        Float scale = 0.85f + Float(i % 5) * 0.22f;
+
+        Float cx = minX + std::fmod(seedX * spanX + _timeSeconds * speed, spanX);
+        Float cz = minZ + std::fmod(seedZ * spanZ + _timeSeconds * speed * 0.35f, spanZ);
+        Float cy = 19.5f + Float(i % 3) * 1.4f + std::sin(_timeSeconds * 0.8f + Float(i)) * 0.25f;
+
+        Matrix4 model = Matrix4::translation({cx, cy, cz}) *
+                        Matrix4::scaling({scale, scale * 0.85f, scale});
+        _shader.setTransformationMatrix(model);
+        _shader.draw(_cloudMesh);
+    }
 }
 
 void Renderer::setViewport(const Vector2i& size) {
@@ -134,7 +218,14 @@ void Renderer::render(const World& world, const Camera& camera,
         _lastDrawnChunks++;
     }
 
-    // Render selected tile overlay (cyan outline box)
+    // Render drifting 3D voxel clouds high in the sky
+    renderDriftingClouds(world, viewProjection);
+
+    // Smooth breathing/pulsing animation for selection and hover indicators
+    Float pulse = 0.5f + 0.5f * std::sin(_timeSeconds * 4.5f);
+    Float bobOffset = std::sin(_timeSeconds * 3.5f) * 0.025f;
+
+    // Render selected tile overlay (animated cyan outline box)
     if(selectedHit.hit) {
         const Chunk* ch = world.chunk(selectedHit.chunkCoord);
         if(ch) {
@@ -146,14 +237,15 @@ void Renderer::render(const World& world, const Camera& camera,
             };
             Vector3 tilePos = chunkPos + Vector3{
                 Float(selectedHit.localTileCoord.x()) * world.tileSpacing(),
-                0.0f,
+                bobOffset,
                 Float(selectedHit.localTileCoord.y()) * world.tileSpacing()
             };
 
+            Float scaleXZ = 1.025f + pulse * 0.02f;
             Matrix4 model = Matrix4::translation(tilePos) *
-                            Matrix4::scaling({1.03f, t.height * 1.03f, 1.03f});
+                            Matrix4::scaling({scaleXZ, t.height * 1.03f, scaleXZ});
 
-            _flatShader.setColor(Color4{0.2f, 0.85f, 1.0f, 0.60f}) // Cyan/neon blue selection
+            _flatShader.setColor(Color4{0.2f, 0.85f, 1.0f, 0.45f + pulse * 0.25f}) // Animated cyan selection
                        .setTransformationProjectionMatrix(viewProjection * model);
             _flatShader.draw(_highlightMesh);
         }
@@ -171,15 +263,16 @@ void Renderer::render(const World& world, const Camera& camera,
             };
             Vector3 tilePos = chunkPos + Vector3{
                 Float(hoverHit.localTileCoord.x()) * world.tileSpacing(),
-                0.0f,
+                bobOffset * 0.6f,
                 Float(hoverHit.localTileCoord.y()) * world.tileSpacing()
             };
 
             // Scale to match height and slightly expand for outline overlay
+            Float scaleXZ = 1.015f + pulse * 0.015f;
             Matrix4 model = Matrix4::translation(tilePos) *
-                            Matrix4::scaling({1.02f, t.height*1.02f, 1.02f});
+                            Matrix4::scaling({scaleXZ, t.height * 1.02f, scaleXZ});
 
-            _flatShader.setColor(Color4{1.0f, 0.95f, 0.2f, 0.50f}) // Warm yellow highlight
+            _flatShader.setColor(Color4{1.0f, 0.90f, 0.25f, 0.38f + pulse * 0.20f}) // Warm pulsing brass highlight
                        .setTransformationProjectionMatrix(viewProjection * model);
             _flatShader.draw(_highlightMesh);
         }

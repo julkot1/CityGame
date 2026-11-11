@@ -36,28 +36,40 @@ void TileInspectorHUD::draw(const Vector2i& windowSize, const World& world, cons
         ImVec4 biomeColor(1.0f, 1.0f, 1.0f, 1.0f);
         switch(tile.type) {
             case TileType::Grass:
-                biomeName = "Grassland Plain";
-                biomeColor = ImVec4(0.41f, 0.62f, 0.42f, 1.0f);
+                biomeName = "Lowland Meadow Plain";
+                biomeColor = ImVec4(0.48f, 0.60f, 0.38f, 1.0f);
+                break;
+            case TileType::Heath:
+                biomeName = "Heather Moorland";
+                biomeColor = ImVec4(0.68f, 0.58f, 0.42f, 1.0f);
                 break;
             case TileType::Forest:
-                biomeName = "Lush Forest";
-                biomeColor = ImVec4(0.26f, 0.48f, 0.35f, 1.0f);
+                biomeName = "Woodland";
+                biomeColor = ImVec4(0.32f, 0.48f, 0.31f, 1.0f);
+                break;
+            case TileType::Clay:
+                biomeName = "Clay Bank";
+                biomeColor = ImVec4(0.72f, 0.50f, 0.36f, 1.0f);
                 break;
             case TileType::Rock:
-                biomeName = "Mountain Rock";
-                biomeColor = ImVec4(0.57f, 0.51f, 0.45f, 1.0f);
+                biomeName = "Basalt & Slate Crag";
+                biomeColor = ImVec4(0.58f, 0.60f, 0.65f, 1.0f);
                 break;
             case TileType::Snow:
-                biomeName = "Alpine Snow Peak";
-                biomeColor = ImVec4(0.95f, 0.95f, 0.85f, 1.0f);
+                biomeName = "Highland Frost Peak";
+                biomeColor = ImVec4(0.92f, 0.89f, 0.82f, 1.0f);
                 break;
             case TileType::Sand:
-                biomeName = "Coastal Sand";
-                biomeColor = ImVec4(0.84f, 0.77f, 0.63f, 1.0f);
+                biomeName = "Coastal Silt & Shingle";
+                biomeColor = ImVec4(0.78f, 0.68f, 0.54f, 1.0f);
+                break;
+            case TileType::Road:
+                biomeName = "Road";
+                biomeColor = ImVec4(0.65f, 0.63f, 0.60f, 1.0f);
                 break;
             case TileType::Water:
-                biomeName = "Deep Water";
-                biomeColor = ImVec4(0.24f, 0.49f, 0.65f, 1.0f);
+                biomeName = "Deep Canal / Waterway";
+                biomeColor = ImVec4(0.28f, 0.54f, 0.64f, 1.0f);
                 break;
             case TileType::Empty:
             default:
@@ -75,19 +87,44 @@ void TileInspectorHUD::draw(const Vector2i& windowSize, const World& world, cons
 
         ImGui::Separator();
 
-        // Entity / Occupant info
         if(entity) {
             const char* entityName = "Unknown Object";
             ImVec4 entColor = UIStyle::Colors::AmberGold;
-            if(entity->type == EntityType::TreeOak) {
-                entityName = "Mature Oak Tree";
-                entColor = ImVec4(0.45f, 0.85f, 0.35f, 1.0f);
-            } else if(entity->type == EntityType::TreePine) {
-                entityName = "Alpine Pine Tree";
-                entColor = ImVec4(0.30f, 0.70f, 0.45f, 1.0f);
-            } else if(entity->type == EntityType::Rock) {
-                entityName = "Granite Boulder";
-                entColor = ImVec4(0.70f, 0.65f, 0.60f, 1.0f);
+            switch(entity->type) {
+                case EntityType::TreeOak:
+                    entityName = "Highland Oak Tree";
+                    entColor = ImVec4(0.58f, 0.72f, 0.36f, 1.0f);
+                    break;
+                case EntityType::TreePine:
+                    entityName = "Slender Larch / Pine";
+                    entColor = ImVec4(0.34f, 0.64f, 0.44f, 1.0f);
+                    break;
+                case EntityType::Rock:
+                    entityName = "Mossy Slate Boulder";
+                    entColor = ImVec4(0.66f, 0.68f, 0.72f, 1.0f);
+                    break;
+                case EntityType::CoalDeposit:
+                    entityName = "Anthracite Coal Seam";
+                    entColor = ImVec4(0.55f, 0.58f, 0.65f, 1.0f);
+                    break;
+                case EntityType::IronDeposit:
+                    entityName = "Hematite Iron Ore Vein";
+                    entColor = ImVec4(0.88f, 0.45f, 0.30f, 1.0f);
+                    break;
+                case EntityType::CopperDeposit:
+                    entityName = "Verdigris Copper Vein";
+                    entColor = ImVec4(0.36f, 0.80f, 0.66f, 1.0f);
+                    break;
+                case EntityType::AncientRuins:
+                    entityName = "Old World Stone Ruins";
+                    entColor = ImVec4(0.82f, 0.78f, 0.68f, 1.0f);
+                    break;
+                case EntityType::RoadCobblestone:
+                    entityName = "Cobblestone Street";
+                    entColor = UIStyle::Colors::AmberGold;
+                    break;
+                default:
+                    break;
             }
             ImGui::TextColored(entColor, "Entity: %s", entityName);
             ImGui::TextDisabled("Scale: %.2fx", static_cast<double>(entity->scale));

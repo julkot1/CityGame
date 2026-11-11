@@ -56,6 +56,7 @@ class MyApplication: public Platform::Application {
 
         UnsignedInt _fpsFrameCount{0};
         Float _fpsTimeAccumulator{0.0f};
+        Float _elapsedTime{0.0f};
 };
 
 MyApplication::MyApplication(const Arguments& arguments):
@@ -100,8 +101,14 @@ MyApplication::MyApplication(const Arguments& arguments):
     _menuManager.setOnCreateWorld([this](const WorldCreationParams& params) {
         auto randGen = dynamic_cast<RandomWorldGenerator*>(_world.generator());
         if(randGen) {
-            randGen->setSeed(params.seed);
+            randGen->setArchetype(static_cast<WorldArchetype>(params.archetype));
+            randGen->setFlatness(params.flatness);
+            randGen->setMountainScale(params.mountainScale);
+            randGen->setRiverIntensity(params.riverIntensity);
+            randGen->setForestDensity(params.forestDensity);
+            randGen->setResourceDensity(params.resourceDensity);
             randGen->setSeaLevel(params.seaLevel);
+            randGen->setSeed(params.seed);
         }
 
         _world.init(params.worldWidthChunks, params.worldHeightChunks);
@@ -204,8 +211,10 @@ void MyApplication::textInputEvent(TextInputEvent& event) {
 
 void MyApplication::drawEvent() {
     Float dt = _timeline.previousFrameDuration();
+    _elapsedTime += dt;
 
     _timeManager.update(dt);
+    _renderer.setTime(_elapsedTime);
 
     // Synchronize atmospheric lighting & sky clear color with TimeManager
     GL::Renderer::setClearColor(_timeManager.skyColor());
