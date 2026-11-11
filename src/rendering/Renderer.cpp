@@ -59,7 +59,9 @@ void Renderer::setViewport(const Vector2i& size) {
     GL::defaultFramebuffer.setViewport({{}, size});
 }
 
-void Renderer::render(const World& world, const Camera& camera, const World::RaycastHit& hoverHit) {
+void Renderer::render(const World& world, const Camera& camera,
+                      const World::RaycastHit& hoverHit,
+                      const World::RaycastHit& selectedHit) {
     GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
 
     const Matrix4 viewProjection = camera.viewProjectionMatrix();
@@ -132,8 +134,33 @@ void Renderer::render(const World& world, const Camera& camera, const World::Ray
         _lastDrawnChunks++;
     }
 
-    // Render hover highlight overlay if hovering a valid tile
-    if(hoverHit.hit) {
+    // Render selected tile overlay (cyan outline box)
+    if(selectedHit.hit) {
+        const Chunk* ch = world.chunk(selectedHit.chunkCoord);
+        if(ch) {
+            const Tile& t = ch->tile(selectedHit.localTileCoord.x(), selectedHit.localTileCoord.y());
+            Vector3 chunkPos{
+                Float(selectedHit.chunkCoord.x()) * chunkWorldSize,
+                0.0f,
+                Float(selectedHit.chunkCoord.y()) * chunkWorldSize
+            };
+            Vector3 tilePos = chunkPos + Vector3{
+                Float(selectedHit.localTileCoord.x()) * world.tileSpacing(),
+                0.0f,
+                Float(selectedHit.localTileCoord.y()) * world.tileSpacing()
+            };
+
+            Matrix4 model = Matrix4::translation(tilePos) *
+                            Matrix4::scaling({1.03f, t.height * 1.03f, 1.03f});
+
+            _flatShader.setColor(Color4{0.2f, 0.85f, 1.0f, 0.60f}) // Cyan/neon blue selection
+                       .setTransformationProjectionMatrix(viewProjection * model);
+            _flatShader.draw(_highlightMesh);
+        }
+    }
+
+    // Render hover highlight overlay if hovering a valid tile (and not already selected)
+    if(hoverHit.hit && (!selectedHit.hit || hoverHit.worldTileX != selectedHit.worldTileX || hoverHit.worldTileZ != selectedHit.worldTileZ)) {
         const Chunk* ch = world.chunk(hoverHit.chunkCoord);
         if(ch) {
             const Tile& t = ch->tile(hoverHit.localTileCoord.x(), hoverHit.localTileCoord.y());
@@ -152,7 +179,7 @@ void Renderer::render(const World& world, const Camera& camera, const World::Ray
             Matrix4 model = Matrix4::translation(tilePos) *
                             Matrix4::scaling({1.02f, t.height*1.02f, 1.02f});
 
-            _flatShader.setColor(Color4{1.0f, 0.95f, 0.2f, 0.55f}) // Bright yellow/gold highlight
+            _flatShader.setColor(Color4{1.0f, 0.95f, 0.2f, 0.50f}) // Warm yellow highlight
                        .setTransformationProjectionMatrix(viewProjection * model);
             _flatShader.draw(_highlightMesh);
         }

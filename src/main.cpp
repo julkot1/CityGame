@@ -212,11 +212,12 @@ void MyApplication::drawEvent() {
         // Update world input (raycasting, hover state, left/right clicks)
         _worldInputHandler.update(_input, framebufferSize());
 
-        _renderer.render(_world, _camera, _worldInputHandler.hoverHit());
+        _renderer.render(_world, _camera, _worldInputHandler.hoverHit(), _worldInputHandler.selectedHit());
 
-        // In-game HUD: displays rendered vs culled chunk count and day/night time controls
+        // In-game HUD: displays rendered vs culled chunk count, day/night controls, and tile inspector
         _gameHUD.update(dt);
-        _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(), _world.chunks().size(), &_timeManager);
+        _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(), _world.chunks().size(),
+                      &_timeManager, &_world, _worldInputHandler.selectedHit());
     }
 
     // Enable/disable appropriate GL states for 2D UI rendering

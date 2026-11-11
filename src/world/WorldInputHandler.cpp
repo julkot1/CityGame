@@ -29,11 +29,19 @@ void WorldInputHandler::update(const Input& input, const Vector2i& viewportSize)
     }
 
     if(_hoverHit.hit) {
-        if(input.isPointerJustPressed(Input::Pointer::MouseLeft) && _onTileLeftClick) {
-            _onTileLeftClick(_hoverHit, Input::Pointer::MouseLeft);
+        if(input.isPointerJustPressed(Input::Pointer::MouseLeft)) {
+            _selectedHit = _hoverHit;
+            if(_onTileLeftClick) {
+                _onTileLeftClick(_hoverHit, Input::Pointer::MouseLeft);
+            }
         }
         if(input.isPointerJustPressed(Input::Pointer::MouseRight) && _onTileRightClick) {
             _onTileRightClick(_hoverHit, Input::Pointer::MouseRight);
+        }
+    } else {
+        // Clicking into empty space clears selection
+        if(input.isPointerJustPressed(Input::Pointer::MouseLeft)) {
+            _selectedHit = {};
         }
     }
 }

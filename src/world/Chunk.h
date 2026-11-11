@@ -39,6 +39,15 @@ class Chunk {
         std::vector<Entity>& entities() { return _entities; }
         void addEntity(const Entity& entity) { _entities.push_back(entity); }
         void clearEntities() { _entities.clear(); }
+        const Entity* entityAt(Int x, Int z) const {
+            for(const auto& e : _entities) {
+                if(Math::abs(e.position.x() - Float(x)) < 0.45f &&
+                   Math::abs(e.position.z() - Float(z)) < 0.45f) {
+                    return &e;
+                }
+            }
+            return nullptr;
+        }
 
         void buildMesh(Float tileSpacing = 0.0f);
         bool hasMesh() const { return _meshGenerated; }

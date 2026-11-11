@@ -2,28 +2,40 @@
 
 #include <Magnum/Magnum.h>
 #include <Magnum/Math/Vector2.h>
+#include "ui/PerformanceHUD.h"
+#include "ui/BuildHUD.h"
+#include "ui/TimeHUD.h"
+#include "ui/TileInspectorHUD.h"
 #include "world/TimeManager.h"
+#include "world/World.h"
 
 namespace Magnum {
 
 /**
- * Handles in-game HUD overlay rendering (FPS counter, time controls, stats, etc.).
+ * High-level HUD coordinator that aggregates and manages individual HUD widgets.
  */
 class GameHUD {
     public:
         explicit GameHUD();
 
         void update(Float dt);
-        void draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks, TimeManager* timeManager = nullptr);
+        void draw(const Vector2i& windowSize,
+                  UnsignedInt renderedChunks,
+                  UnsignedInt totalChunks,
+                  TimeManager* timeManager = nullptr,
+                  const World* world = nullptr,
+                  const World::RaycastHit& selectedHit = {});
 
-        Float currentFps() const { return _currentFps; }
-        Float currentFrameTimeMs() const { return _currentFrameTimeMs; }
+        PerformanceHUD& performanceHUD() { return _performanceHUD; }
+        TimeHUD& timeHUD() { return _timeHUD; }
+        TileInspectorHUD& tileInspectorHUD() { return _tileInspectorHUD; }
+        BuildHUD& buildHUD() { return _buildHUD; }
 
     private:
-        UnsignedInt _frameCount{0};
-        Float _timeAccumulator{0.0f};
-        Float _currentFps{0.0f};
-        Float _currentFrameTimeMs{0.0f};
+        PerformanceHUD _performanceHUD;
+        TimeHUD _timeHUD;
+        TileInspectorHUD _tileInspectorHUD;
+        BuildHUD _buildHUD;
 };
 
 }

@@ -37,8 +37,16 @@ add_executable(app
     ui/MenuManager.cpp
     ui/GameHUD.h
     ui/GameHUD.cpp
+    ui/PerformanceHUD.h
+    ui/PerformanceHUD.cpp
+    ui/TimeHUD.h
+    ui/TimeHUD.cpp
+    ui/TileInspectorHUD.h
+    ui/TileInspectorHUD.cpp
     ui/UIStyle.h
     ui/UIStyle.cpp
+    ui/BuildHUD.h
+    ui/BuildHUD.cpp
 )
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

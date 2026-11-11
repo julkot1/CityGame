@@ -21,6 +21,11 @@ class WorldInputHandler {
         const World::RaycastHit& hoverHit() const { return _hoverHit; }
         bool isHoveringTile() const { return _hoverHit.hit; }
 
+        const World::RaycastHit& selectedHit() const { return _selectedHit; }
+        bool hasSelection() const { return _selectedHit.hit; }
+        void clearSelection() { _selectedHit = {}; }
+        void selectTile(const World::RaycastHit& hit) { _selectedHit = hit; }
+
         void setOnTileLeftClick(TileActionCallback callback) { _onTileLeftClick = std::move(callback); }
         void setOnTileRightClick(TileActionCallback callback) { _onTileRightClick = std::move(callback); }
         void setOnTileHover(std::function<void(const World::RaycastHit&)> callback) { _onTileHover = std::move(callback); }
@@ -30,6 +35,7 @@ class WorldInputHandler {
         const Camera& _camera;
 
         World::RaycastHit _hoverHit;
+        World::RaycastHit _selectedHit;
         TileActionCallback _onTileLeftClick;
         TileActionCallback _onTileRightClick;
         std::function<void(const World::RaycastHit&)> _onTileHover;

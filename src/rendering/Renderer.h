@@ -15,7 +15,9 @@ class Renderer {
         explicit Renderer();
 
         void setViewport(const Vector2i& size);
-        void render(const World& world, const Camera& camera, const World::RaycastHit& hoverHit = {});
+        void render(const World& world, const Camera& camera,
+                    const World::RaycastHit& hoverHit = {},
+                    const World::RaycastHit& selectedHit = {});
 
         UnsignedInt lastDrawnChunks() const { return _lastDrawnChunks; }
 
