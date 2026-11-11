@@ -1,5 +1,7 @@
 #include "world/EntityModelRegistry.h"
 #include <Magnum/Math/Color.h>
+#include <random>
+#include <algorithm>
 
 namespace Magnum {
 
@@ -15,6 +17,8 @@ void EntityModelRegistry::buildEntityMesh(const Entity& entity,
         case EntityType::TreePine:
             buildPineTree(entity.position, entity.scale, vertices, indices);
             break;
+        case EntityType::Rock:
+            buildRock(entity.position, entity.scale, vertices, indices);
         case EntityType::None:
         default:
             break;
@@ -148,5 +152,74 @@ void EntityModelRegistry::buildPineTree(const Vector3& pos, Float scale,
         pineGreenTier3, 0.95f, vertices, indices
     );
 }
+
+
+void EntityModelRegistry::buildRock(const Vector3& pos, Float scale,
+                                    std::vector<ChunkVertex>& vertices,
+                                    std::vector<UnsignedInt>& indices) {
+    // Random generator
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+
+    std::uniform_real_distribution<Float> sizeDist(0.65f, 1.0f);
+    std::uniform_real_distribution<Float> colorDist(-0.06f, 0.06f);
+    std::uniform_real_distribution<Float> offsetDist(-0.12f, 0.12f);
+
+    const Color3 baseColor{0.42f, 0.43f, 0.45f};
+
+    // Random rock dimensions
+    const Float width = scale * sizeDist(gen);
+    const Float height = scale * sizeDist(gen) * 0.65f;
+    const Float depth = scale * sizeDist(gen);
+
+    // Main rock body
+    const Float ox = offsetDist(gen) * scale;
+    const Float oz = offsetDist(gen) * scale;
+
+    auto randomColor = [&]() {
+        Float variation = colorDist(gen);
+
+        return Color3{
+            std::clamp(baseColor.r() + variation, 0.0f, 1.0f),
+            std::clamp(baseColor.g() + variation, 0.0f, 1.0f),
+            std::clamp(baseColor.b() + variation, 0.0f, 1.0f)
+        };
+    };
+
+    // Main body
+    addAABB(
+        {pos.x() - width * 0.5f + ox, pos.y(),
+         pos.z() - depth * 0.5f + oz},
+        {pos.x() + width * 0.5f + ox, pos.y() + height,
+         pos.z() + depth * 0.5f + oz},
+        randomColor(), 0.75f, vertices, indices
+    );
+
+    // Upper rock section
+    const Float topWidth = width * 0.65f;
+    const Float topDepth = depth * 0.70f;
+
+    addAABB(
+        {pos.x() - topWidth * 0.5f + ox,
+         pos.y() + height * 0.65f,
+         pos.z() - topDepth * 0.5f + oz},
+        {pos.x() + topWidth * 0.5f + ox,
+         pos.y() + height * 1.15f,
+         pos.z() + topDepth * 0.5f + oz},
+        randomColor(), 0.85f, vertices, indices
+    );
+
+    // Small side protrusion
+    addAABB(
+        {pos.x() - width * 0.55f + ox,
+         pos.y() + height * 0.15f,
+         pos.z() - depth * 0.25f + oz},
+        {pos.x() - width * 0.20f + ox,
+         pos.y() + height * 0.65f,
+         pos.z() + depth * 0.25f + oz},
+        randomColor(), 0.65f, vertices, indices
+    );
+}
+
 
 }

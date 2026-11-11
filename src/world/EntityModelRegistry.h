@@ -28,6 +28,9 @@ class EntityModelRegistry {
         static void buildPineTree(const Vector3& pos, Float scale,
                                   std::vector<ChunkVertex>& vertices,
                                   std::vector<UnsignedInt>& indices);
+        static void buildRock(const Vector3& pos, Float scale,
+                                    std::vector<ChunkVertex>& vertices,
+                                    std::vector<UnsignedInt>& indices);
 
     private:
         // Helper to append a colored 3D axis-aligned box

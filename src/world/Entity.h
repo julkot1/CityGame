@@ -8,7 +8,8 @@ namespace Magnum {
 enum class EntityType : UnsignedShort {
     None = 0,
     TreeOak,
-    TreePine
+    TreePine,
+    Rock,
 };
 
 struct Entity {

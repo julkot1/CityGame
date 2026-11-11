@@ -43,6 +43,8 @@ class RandomWorldGenerator: public WorldGenerator {
 
         void generateChunk(Chunk& chunk) override;
         Tile generateTile(Int worldX, Int worldZ) override;
+        void generateTrees(Chunk& chunk, Tile& t, Int localX, Int localZ, Int worldX, Int worldZ, UnsignedInt& nextEntityId);
+        void generateRocks(Chunk& chunk, Tile& t, Int localX, Int localZ, Int worldX, Int worldZ, UnsignedInt& nextEntityId);
 
     private:
         void initBiomeRules();

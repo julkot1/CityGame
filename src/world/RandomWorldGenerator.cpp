@@ -104,6 +104,66 @@ Tile RandomWorldGenerator::generateTile(Int worldX, Int worldZ) {
     return classifyBiome(elevation, moisture, isRiver);
 }
 
+void RandomWorldGenerator::generateRocks(Chunk& chunk, Tile& t, Int localX, Int localZ, Int worldX, Int worldZ, UnsignedInt& nextEntityId) {
+    std::seed_seq seedSeq{
+        static_cast<uint32_t>(worldX),
+        static_cast<uint32_t>(worldZ),
+        static_cast<uint32_t>(_seed*31u)
+    };
+    std::mt19937 rng(seedSeq);
+    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+
+    float randVal = dist01(rng);
+
+
+    if(randVal < 0.002f) {
+        Entity tree;
+        tree.id = nextEntityId++;
+        tree.type = EntityType::Rock;
+        tree.position = Vector3{Float(localX), t.height, Float(localZ)};
+        tree.scale = 0.85f + dist01(rng) * 0.35f; 
+        chunk.addEntity(tree);
+    } 
+}
+
+void RandomWorldGenerator::generateTrees(Chunk& chunk, Tile& t, Int localX, Int localZ, Int worldX, Int worldZ, UnsignedInt& nextEntityId) {
+    std::seed_seq seedSeq{
+        static_cast<uint32_t>(worldX),
+        static_cast<uint32_t>(worldZ),
+        static_cast<uint32_t>(_seed)
+    };
+    std::mt19937 rng(seedSeq);
+    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+
+    float randVal = dist01(rng);
+
+    // Tree placement rules:
+    // 1. Forest Biome: Dense oak & pine clusters (18% density)
+    // 2. Grassland Biome: Occasional scattered shade trees (2.5% density)
+    // 3. Mountain/Rock Biome: Sparse hardy alpine pines (2% density)
+    if(t.type == TileType::Forest && randVal < 0.18f) {
+        Entity tree;
+        tree.id = nextEntityId++;
+        tree.type = (dist01(rng) < 0.65f) ? EntityType::TreeOak : EntityType::TreePine;
+        tree.position = Vector3{Float(localX), t.height, Float(localZ)};
+        tree.scale = 0.85f + dist01(rng) * 0.35f; // Random scale variance (0.85 - 1.20)
+        chunk.addEntity(tree);
+    } else if(t.type == TileType::Grass && randVal < 0.025f) {
+        Entity tree;
+        tree.id = nextEntityId++;
+        tree.type = EntityType::TreeOak;
+        tree.position = Vector3{Float(localX), t.height, Float(localZ)};
+        tree.scale = 0.80f + dist01(rng) * 0.30f;
+        chunk.addEntity(tree);
+    } else if(t.type == TileType::Rock && t.height < 15.0f && randVal < 0.02f) {
+        Entity tree;
+        tree.id = nextEntityId++;
+        tree.type = EntityType::TreePine;
+        tree.position = Vector3{Float(localX), t.height, Float(localZ)};
+        tree.scale = 0.70f + dist01(rng) * 0.30f;
+        chunk.addEntity(tree);
+    }
+}
 void RandomWorldGenerator::generateChunk(Chunk& chunk) {
     chunk.clearEntities();
     const Vector2i cc = chunk.chunkCoord();
@@ -115,44 +175,8 @@ void RandomWorldGenerator::generateChunk(Chunk& chunk) {
             Int worldZ = cc.y() * Chunk::Size + z;
             Tile t = generateTile(worldX, worldZ);
             chunk.tile(x, z) = t;
-
-            // Deterministic tile RNG using std::mt19937 and std::uniform_real_distribution
-            std::seed_seq seedSeq{
-                static_cast<uint32_t>(worldX),
-                static_cast<uint32_t>(worldZ),
-                static_cast<uint32_t>(_seed)
-            };
-            std::mt19937 rng(seedSeq);
-            std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
-
-            float randVal = dist01(rng);
-
-            // Tree placement rules:
-            // 1. Forest Biome: Dense oak & pine clusters (18% density)
-            // 2. Grassland Biome: Occasional scattered shade trees (2.5% density)
-            // 3. Mountain/Rock Biome: Sparse hardy alpine pines (2% density)
-            if(t.type == TileType::Forest && randVal < 0.18f) {
-                Entity tree;
-                tree.id = nextEntityId++;
-                tree.type = (dist01(rng) < 0.65f) ? EntityType::TreeOak : EntityType::TreePine;
-                tree.position = Vector3{Float(x), t.height, Float(z)};
-                tree.scale = 0.85f + dist01(rng) * 0.35f; // Random scale variance (0.85 - 1.20)
-                chunk.addEntity(tree);
-            } else if(t.type == TileType::Grass && randVal < 0.025f) {
-                Entity tree;
-                tree.id = nextEntityId++;
-                tree.type = EntityType::TreeOak;
-                tree.position = Vector3{Float(x), t.height, Float(z)};
-                tree.scale = 0.80f + dist01(rng) * 0.30f;
-                chunk.addEntity(tree);
-            } else if(t.type == TileType::Rock && t.height < 15.0f && randVal < 0.02f) {
-                Entity tree;
-                tree.id = nextEntityId++;
-                tree.type = EntityType::TreePine;
-                tree.position = Vector3{Float(x), t.height, Float(z)};
-                tree.scale = 0.70f + dist01(rng) * 0.30f;
-                chunk.addEntity(tree);
-            }
+            generateTrees(chunk, t, x, z, worldX, worldZ, nextEntityId);
+            generateRocks(chunk, t, x, z, worldX, worldZ, nextEntityId);
         }
     }
 }
