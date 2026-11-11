@@ -7,6 +7,7 @@
 #include "world/WorldInputHandler.h"
 #include "world/WorldStorage.h"
 #include "world/RandomWorldGenerator.h"
+#include "world/BuildSystem.h"
 #include "ui/MenuManager.h"
 #include "ui/GameHUD.h"
 #include <Corrade/Containers/StringView.h>
@@ -41,6 +42,7 @@ class MyApplication: public Platform::Application {
         MenuManager _menuManager;
         GameHUD _gameHUD;
         TimeManager _timeManager;
+        BuildSystem _buildSystem;
 
         World _world{1.0f};
         Renderer _renderer;
@@ -114,6 +116,13 @@ MyApplication::MyApplication(const Arguments& arguments):
         exit();
     });
 
+    // World Input callback: Left-click places road or demolishes when in build mode
+    _worldInputHandler.setOnTileLeftClick([this](const World::RaycastHit& hit, Input::Pointer) {
+        if(_buildSystem.isBuilding()) {
+            _buildSystem.executeAction(_world, hit);
+        }
+    });
+
     Debug{} << "CityBuilder Initialized!";
     _timeline.start();
 }
@@ -134,8 +143,29 @@ void MyApplication::viewportEvent(ViewportEvent& event) {
 void MyApplication::keyPressEvent(KeyEvent& event) {
     if(_imgui.handleKeyPressEvent(event)) return;
 
-    if(event.key() == KeyEvent::Key::Esc) {
+    if(event.key() == Sdl2Application::Key::Esc) {
+        if(_buildSystem.isBuilding()) {
+            _buildSystem.setActiveTool(BuildTool::Inspect);
+            event.setAccepted();
+            return;
+        }
         _menuManager.toggleMenu();
+        event.setAccepted();
+        return;
+    }
+
+    // Number hotkeys for Build tools
+    if(event.key() == Sdl2Application::Key::One) {
+        _buildSystem.setActiveTool(
+            _buildSystem.activeTool() == BuildTool::RoadCobblestone ? BuildTool::Inspect : BuildTool::RoadCobblestone
+        );
+        event.setAccepted();
+        return;
+    }
+    if(event.key() == Sdl2Application::Key::Two) {
+        _buildSystem.setActiveTool(
+            _buildSystem.activeTool() == BuildTool::Demolish ? BuildTool::Inspect : BuildTool::Demolish
+        );
         event.setAccepted();
         return;
     }
@@ -187,7 +217,6 @@ void MyApplication::drawEvent() {
 
     _imgui.newFrame();
 
-    // Enable OS text input subsystem when ImGui text fields request it
     if(ImGui::GetIO().WantTextInput) {
         startTextInput();
     } else {
@@ -195,29 +224,26 @@ void MyApplication::drawEvent() {
     }
 
     if(_menuManager.isMenuOpen()) {
-        // Slowly rotate camera around world in background for cinematic panorama
         _camera.rotate(Rad{0.08f * dt}, 0.0_radf);
 
-        // Render world in background first
         _renderer.render(_world, _camera);
 
-        // Draw menu UI through MenuManager
         _menuManager.draw(windowSize());
     } else {
-        // Playing state: update camera and world inputs
         const Vector3 minBounds{_world.minWorldX(), 0.0f, _world.minWorldZ()};
         const Vector3 maxBounds{_world.maxWorldX(), 0.0f, _world.maxWorldZ()};
         _cameraController.update(_input, dt, minBounds, maxBounds);
 
-        // Update world input (raycasting, hover state, left/right clicks)
         _worldInputHandler.update(_input, framebufferSize());
 
         _renderer.render(_world, _camera, _worldInputHandler.hoverHit(), _worldInputHandler.selectedHit());
 
-        // In-game HUD: displays rendered vs culled chunk count, day/night controls, and tile inspector
+        PlacementValidation validation = _buildSystem.validatePlacement(_world, _worldInputHandler.hoverHit());
+
         _gameHUD.update(dt);
         _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(), _world.chunks().size(),
-                      &_timeManager, &_world, _worldInputHandler.selectedHit());
+                      &_timeManager, &_world, _worldInputHandler.selectedHit(),
+                      &_buildSystem, validation);
     }
 
     // Enable/disable appropriate GL states for 2D UI rendering

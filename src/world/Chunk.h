@@ -33,12 +33,32 @@ class Chunk {
         Tile& tile(Int x, Int z);
         const Tile& tile(Int x, Int z) const;
         const std::array<Tile, Size * Size>& tiles() const { return _tiles; }
+        std::array<Tile, Size * Size>& tiles() { return _tiles; }
 
         // Entity Management
         const std::vector<Entity>& entities() const { return _entities; }
         std::vector<Entity>& entities() { return _entities; }
         void addEntity(const Entity& entity) { _entities.push_back(entity); }
         void clearEntities() { _entities.clear(); }
+        bool removeEntityAt(Int x, Int z) {
+            for(auto it = _entities.begin(); it != _entities.end(); ++it) {
+                if(Math::abs(it->position.x() - Float(x)) < 0.45f &&
+                   Math::abs(it->position.z() - Float(z)) < 0.45f) {
+                    _entities.erase(it);
+                    return true;
+                }
+            }
+            return false;
+        }
+        Entity* entityAt(Int x, Int z) {
+            for(auto& e : _entities) {
+                if(Math::abs(e.position.x() - Float(x)) < 0.45f &&
+                   Math::abs(e.position.z() - Float(z)) < 0.45f) {
+                    return &e;
+                }
+            }
+            return nullptr;
+        }
         const Entity* entityAt(Int x, Int z) const {
             for(const auto& e : _entities) {
                 if(Math::abs(e.position.x() - Float(x)) < 0.45f &&

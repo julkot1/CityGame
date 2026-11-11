@@ -14,7 +14,8 @@ enum class TileType: UnsignedByte {
     Grass,
     Forest,
     Rock,
-    Snow
+    Snow,
+    Road
 };
 
 struct Tile {

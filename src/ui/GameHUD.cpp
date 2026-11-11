@@ -13,7 +13,9 @@ void GameHUD::draw(const Vector2i& windowSize,
                     UnsignedInt totalChunks,
                     TimeManager* timeManager,
                     const World* world,
-                    const World::RaycastHit& selectedHit) {
+                    const World::RaycastHit& selectedHit,
+                    BuildSystem* buildSystem,
+                    const PlacementValidation& validation) {
     // 1. Top-Left: Performance & culling stats
     _performanceHUD.draw(windowSize, renderedChunks, totalChunks);
 
@@ -27,7 +29,10 @@ void GameHUD::draw(const Vector2i& windowSize,
         _tileInspectorHUD.draw(windowSize, *world, selectedHit);
     }
 
-    _buildHUD.draw(windowSize);
+    // 4. Bottom-Right: Construction toolbar & status
+    if(buildSystem) {
+        _buildHUD.draw(windowSize, *buildSystem, validation);
+    }
 }
 
 }

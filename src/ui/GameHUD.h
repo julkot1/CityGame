@@ -8,6 +8,7 @@
 #include "ui/TileInspectorHUD.h"
 #include "world/TimeManager.h"
 #include "world/World.h"
+#include "world/BuildSystem.h"
 
 namespace Magnum {
 
@@ -24,7 +25,9 @@ class GameHUD {
                   UnsignedInt totalChunks,
                   TimeManager* timeManager = nullptr,
                   const World* world = nullptr,
-                  const World::RaycastHit& selectedHit = {});
+                  const World::RaycastHit& selectedHit = {},
+                  BuildSystem* buildSystem = nullptr,
+                  const PlacementValidation& validation = {});
 
         PerformanceHUD& performanceHUD() { return _performanceHUD; }
         TimeHUD& timeHUD() { return _timeHUD; }

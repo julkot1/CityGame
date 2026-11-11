@@ -18,7 +18,24 @@ void EntityModelRegistry::buildEntityMesh(const Entity& entity,
             buildPineTree(entity.position, entity.scale, vertices, indices);
             break;
         case EntityType::Rock:
-            buildRock(entity.position, entity.scale, vertices, indices);
+            buildRock(entity.position, entity.scale, entity.id, vertices, indices);
+            break;
+        case EntityType::RoadCobblestone: {
+            // Decode road metadata from entity.data:
+            // bits 0-3:  connectionMask (N=1, E=2, S=4, W=8)
+            // bits 4-7:  rampDirX as signed int4 (-1, 0, 1)
+            // bits 8-11: rampDirZ as signed int4 (-1, 0, 1)
+            // bits 16-31: deltaY in millimeters
+            UnsignedByte mask = static_cast<uint8_t>(entity.data & 0x0F);
+            int8_t rawDirX = static_cast<int8_t>((entity.data >> 4) & 0x0F);
+            if(rawDirX > 7) rawDirX -= 16;
+            int8_t rawDirZ = static_cast<int8_t>((entity.data >> 8) & 0x0F);
+            if(rawDirZ > 7) rawDirZ -= 16;
+            Float deltaY = static_cast<int16_t>((entity.data >> 16) & 0xFFFF) / 1000.0f;
+
+            buildCobblestoneRoad(entity.position, vertices, indices, mask, deltaY, rawDirX, rawDirZ);
+            break;
+        }
         case EntityType::None:
         default:
             break;
@@ -154,20 +171,20 @@ void EntityModelRegistry::buildPineTree(const Vector3& pos, Float scale,
 }
 
 
-void EntityModelRegistry::buildRock(const Vector3& pos, Float scale,
+void EntityModelRegistry::buildRock(const Vector3& pos, Float scale, UnsignedInt seed,
                                     std::vector<ChunkVertex>& vertices,
                                     std::vector<UnsignedInt>& indices) {
-    // Random generator
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
+    // Deterministic PRNG seeded with entity ID and position so rock shape stays constant forever
+    uint32_t s = seed ^ static_cast<uint32_t>(pos.x() * 1000.0f) ^ (static_cast<uint32_t>(pos.z() * 1000.0f) << 16);
+    std::mt19937 gen(s);
 
-    std::uniform_real_distribution<Float> sizeDist(0.65f, 1.0f);
-    std::uniform_real_distribution<Float> colorDist(-0.06f, 0.06f);
-    std::uniform_real_distribution<Float> offsetDist(-0.12f, 0.12f);
+    std::uniform_real_distribution<Float> sizeDist(0.70f, 0.95f);
+    std::uniform_real_distribution<Float> colorDist(-0.04f, 0.04f);
+    std::uniform_real_distribution<Float> offsetDist(-0.08f, 0.08f);
 
-    const Color3 baseColor{0.42f, 0.43f, 0.45f};
+    const Color3 baseColor{0.44f, 0.44f, 0.46f};
 
-    // Random rock dimensions
+    // Constant rock dimensions for this rock instance
     const Float width = scale * sizeDist(gen);
     const Float height = scale * sizeDist(gen) * 0.65f;
     const Float depth = scale * sizeDist(gen);
@@ -219,6 +236,191 @@ void EntityModelRegistry::buildRock(const Vector3& pos, Float scale,
          pos.z() + depth * 0.25f + oz},
         randomColor(), 0.65f, vertices, indices
     );
+}
+
+void EntityModelRegistry::buildCobblestoneRoad(const Vector3& pos,
+                                              std::vector<ChunkVertex>& vertices,
+                                              std::vector<UnsignedInt>& indices,
+                                              UnsignedByte connectionMask,
+                                              Float deltaY,
+                                              Int rampDirX,
+                                              Int rampDirZ) {
+    const Float halfTile = 0.50f;
+    const Float roadBedThickness = 0.035f;
+    const Color3 mudBaseColor{0.30f, 0.22f, 0.15f}; // Dark packed earth/mud
+    const Color3 stoneLight{0.46f, 0.44f, 0.42f};
+    const Color3 stoneDark{0.38f, 0.36f, 0.34f};
+    const Color3 stoneAccent{0.52f, 0.48f, 0.40f}; // Highlight crossing center stone
+    const Float cobbleHeight = 0.025f;
+
+    // If there is no elevation difference, emit flat road according to connectivity mask
+    if(Math::abs(deltaY) < 0.01f || (rampDirX == 0 && rampDirZ == 0)) {
+        // Roadbed foundation
+        addAABB(
+            {pos.x() - halfTile, pos.y() + 0.002f, pos.z() - halfTile},
+            {pos.x() + halfTile, pos.y() + roadBedThickness, pos.z() + halfTile},
+            mudBaseColor, 0.85f, vertices, indices
+        );
+
+        // Connections: bit 0 = North (+Z), bit 1 = East (+X), bit 2 = South (-Z), bit 3 = West (-X)
+        bool hasN = (connectionMask & 1) != 0;
+        bool hasE = (connectionMask & 2) != 0;
+        bool hasS = (connectionMask & 4) != 0;
+        bool hasW = (connectionMask & 8) != 0;
+        int branchCount = (hasN ? 1 : 0) + (hasE ? 1 : 0) + (hasS ? 1 : 0) + (hasW ? 1 : 0);
+
+        // If it's a 3-way or 4-way intersection (T-junction or Crossroad), add a distinct central paved square
+        if(branchCount >= 3) {
+            const Float plazaHalf = 0.16f;
+            addAABB(
+                {pos.x() - plazaHalf, pos.y() + roadBedThickness, pos.z() - plazaHalf},
+                {pos.x() + plazaHalf, pos.y() + roadBedThickness + cobbleHeight + 0.005f, pos.z() + plazaHalf},
+                stoneAccent, 1.0f, vertices, indices
+            );
+        }
+
+        const Float step = 0.25f;
+        const Float stoneHalfSize = 0.105f;
+
+        for(int r = 0; r < 4; ++r) {
+            for(int c = 0; c < 4; ++c) {
+                Float ox = -0.375f + Float(c) * step;
+                Float oz = -0.375f + Float(r) * step;
+                const Color3& col = ((r + c) % 2 == 0) ? stoneLight : stoneDark;
+
+                addAABB(
+                    {pos.x() + ox - stoneHalfSize, pos.y() + roadBedThickness, pos.z() + oz - stoneHalfSize},
+                    {pos.x() + ox + stoneHalfSize, pos.y() + roadBedThickness + cobbleHeight, pos.z() + oz + stoneHalfSize},
+                    col, 0.95f, vertices, indices
+                );
+            }
+        }
+        return;
+    }
+
+    // SLOPED RAMP ROAD:
+    // Computes elevation per vertex smoothly interpolating from lower edge (0) to upper edge (deltaY)
+    auto evalHeight = [&](Float u) -> Float {
+        // u is in range [0.0, 1.0] along the ramp direction
+        return pos.y() + 0.002f + u * deltaY;
+    };
+
+    // Calculate the 4 corners of the sloped roadbed
+    // c00 (-X, -Z), c10 (+X, -Z), c11 (+X, +Z), c01 (-X, +Z)
+    Float h00, h10, h11, h01;
+    if(rampDirX != 0) {
+        // Ramp along X axis
+        Float uLeft  = (rampDirX > 0) ? 0.0f : 1.0f;
+        Float uRight = (rampDirX > 0) ? 1.0f : 0.0f;
+        h00 = evalHeight(uLeft);
+        h01 = evalHeight(uLeft);
+        h10 = evalHeight(uRight);
+        h11 = evalHeight(uRight);
+    } else {
+        // Ramp along Z axis
+        Float uBack  = (rampDirZ > 0) ? 0.0f : 1.0f;
+        Float uFront = (rampDirZ > 0) ? 1.0f : 0.0f;
+        h00 = evalHeight(uBack);
+        h10 = evalHeight(uBack);
+        h01 = evalHeight(uFront);
+        h11 = evalHeight(uFront);
+    }
+
+    // Normal for sloped top surface
+    Vector3 topNormal = (rampDirX != 0)
+        ? Vector3{-Float(rampDirX) * deltaY, 1.0f, 0.0f}.normalized()
+        : Vector3{0.0f, 1.0f, -Float(rampDirZ) * deltaY}.normalized();
+
+    // 1. Emit Sloped Mud Roadbed Top
+    UnsignedInt base = vertices.size();
+    vertices.push_back({{pos.x() - halfTile, h00 + roadBedThickness, pos.z() - halfTile}, topNormal, mudBaseColor, 0.88f});
+    vertices.push_back({{pos.x() + halfTile, h10 + roadBedThickness, pos.z() - halfTile}, topNormal, mudBaseColor, 0.88f});
+    vertices.push_back({{pos.x() + halfTile, h11 + roadBedThickness, pos.z() + halfTile}, topNormal, mudBaseColor, 0.88f});
+    vertices.push_back({{pos.x() - halfTile, h01 + roadBedThickness, pos.z() + halfTile}, topNormal, mudBaseColor, 0.88f});
+
+    indices.push_back(base + 0);
+    indices.push_back(base + 2);
+    indices.push_back(base + 1);
+    indices.push_back(base + 0);
+    indices.push_back(base + 3);
+    indices.push_back(base + 2);
+
+    // Lateral skirting skirt walls for the ramp so the side of the ramp isn't hollow
+    // Left/Right or Front/Back sides
+    if(rampDirX != 0) {
+        // Front (+Z) and Back (-Z) sides of the ramp
+        Float yLow = pos.y() + 0.002f;
+        // Back (-Z) skirt
+        base = vertices.size();
+        Vector3 bNorm{0.0f, 0.0f, -1.0f};
+        vertices.push_back({{pos.x() - halfTile, yLow, pos.z() - halfTile}, bNorm, mudBaseColor, 0.70f});
+        vertices.push_back({{pos.x() + halfTile, yLow, pos.z() - halfTile}, bNorm, mudBaseColor, 0.70f});
+        vertices.push_back({{pos.x() + halfTile, h10 + roadBedThickness, pos.z() - halfTile}, bNorm, mudBaseColor, 0.88f});
+        vertices.push_back({{pos.x() - halfTile, h00 + roadBedThickness, pos.z() - halfTile}, bNorm, mudBaseColor, 0.88f});
+        indices.push_back(base + 0); indices.push_back(base + 2); indices.push_back(base + 1);
+        indices.push_back(base + 0); indices.push_back(base + 3); indices.push_back(base + 2);
+
+        // Front (+Z) skirt
+        base = vertices.size();
+        Vector3 fNorm{0.0f, 0.0f, 1.0f};
+        vertices.push_back({{pos.x() - halfTile, yLow, pos.z() + halfTile}, fNorm, mudBaseColor, 0.70f});
+        vertices.push_back({{pos.x() - halfTile, h01 + roadBedThickness, pos.z() + halfTile}, fNorm, mudBaseColor, 0.88f});
+        vertices.push_back({{pos.x() + halfTile, h11 + roadBedThickness, pos.z() + halfTile}, fNorm, mudBaseColor, 0.88f});
+        vertices.push_back({{pos.x() + halfTile, yLow, pos.z() + halfTile}, fNorm, mudBaseColor, 0.70f});
+        indices.push_back(base + 0); indices.push_back(base + 2); indices.push_back(base + 1);
+        indices.push_back(base + 0); indices.push_back(base + 3); indices.push_back(base + 2);
+    } else {
+        Float yLow = pos.y() + 0.002f;
+        // Left (-X) skirt
+        base = vertices.size();
+        Vector3 lNorm{-1.0f, 0.0f, 0.0f};
+        vertices.push_back({{pos.x() - halfTile, yLow, pos.z() - halfTile}, lNorm, mudBaseColor, 0.70f});
+        vertices.push_back({{pos.x() - halfTile, h00 + roadBedThickness, pos.z() - halfTile}, lNorm, mudBaseColor, 0.88f});
+        vertices.push_back({{pos.x() - halfTile, h01 + roadBedThickness, pos.z() + halfTile}, lNorm, mudBaseColor, 0.88f});
+        vertices.push_back({{pos.x() - halfTile, yLow, pos.z() + halfTile}, lNorm, mudBaseColor, 0.70f});
+        indices.push_back(base + 0); indices.push_back(base + 2); indices.push_back(base + 1);
+        indices.push_back(base + 0); indices.push_back(base + 3); indices.push_back(base + 2);
+
+        // Right (+X) skirt
+        base = vertices.size();
+        Vector3 rNorm{1.0f, 0.0f, 0.0f};
+        vertices.push_back({{pos.x() + halfTile, yLow, pos.z() - halfTile}, rNorm, mudBaseColor, 0.70f});
+        vertices.push_back({{pos.x() + halfTile, yLow, pos.z() + halfTile}, rNorm, mudBaseColor, 0.70f});
+        vertices.push_back({{pos.x() + halfTile, h11 + roadBedThickness, pos.z() + halfTile}, rNorm, mudBaseColor, 0.88f});
+        vertices.push_back({{pos.x() + halfTile, h10 + roadBedThickness, pos.z() - halfTile}, rNorm, mudBaseColor, 0.88f});
+        indices.push_back(base + 0); indices.push_back(base + 2); indices.push_back(base + 1);
+        indices.push_back(base + 0); indices.push_back(base + 3); indices.push_back(base + 2);
+    }
+
+    // 2. Emit 4 Distinct Stepped Paver Tiers (Steps) climbing along the incline
+    const Float step = 0.25f;
+    const Float stoneHalfSize = 0.105f;
+    const Float stepElevationInterval = deltaY / 4.0f; // Each row rises by 1/4th of the height difference
+
+    for(int r = 0; r < 4; ++r) {
+        for(int c = 0; c < 4; ++c) {
+            Float ox = -0.375f + Float(c) * step;
+            Float oz = -0.375f + Float(r) * step;
+
+            // Step index along the climbing direction (0, 1, 2, 3)
+            Int stepIndex = 0;
+            if(rampDirX != 0) {
+                stepIndex = (rampDirX > 0) ? c : (3 - c);
+            } else {
+                stepIndex = (rampDirZ > 0) ? r : (3 - r);
+            }
+
+            // Each tier sits flat on its stepped riser level
+            Float tierY = pos.y() + 0.002f + Float(stepIndex) * stepElevationInterval + roadBedThickness;
+            const Color3& col = ((r + c) % 2 == 0) ? stoneLight : stoneDark;
+
+            addAABB(
+                {pos.x() + ox - stoneHalfSize, tierY, pos.z() + oz - stoneHalfSize},
+                {pos.x() + ox + stoneHalfSize, tierY + cobbleHeight + stepElevationInterval * 0.4f, pos.z() + oz + stoneHalfSize},
+                col, 0.95f, vertices, indices
+            );
+        }
+    }
 }
 
 

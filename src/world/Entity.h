@@ -10,6 +10,7 @@ enum class EntityType : UnsignedShort {
     TreeOak,
     TreePine,
     Rock,
+    RoadCobblestone,
 };
 
 struct Entity {
@@ -18,7 +19,7 @@ struct Entity {
     Vector3 position{0.0f}; // Position relative to chunk origin (X, Y, Z)
     Float rotationY{0.0f};  // Y-axis rotation in radians
     Float scale{1.0f};      // Scaling factor
-    UnsignedInt data{0};    // Custom metadata (e.g. variant, growth)
+    UnsignedInt data{0};    // Custom metadata (e.g. ramp direction / height delta)
 };
 
 }

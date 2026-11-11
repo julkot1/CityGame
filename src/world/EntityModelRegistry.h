@@ -28,9 +28,16 @@ class EntityModelRegistry {
         static void buildPineTree(const Vector3& pos, Float scale,
                                   std::vector<ChunkVertex>& vertices,
                                   std::vector<UnsignedInt>& indices);
-        static void buildRock(const Vector3& pos, Float scale,
-                                    std::vector<ChunkVertex>& vertices,
-                                    std::vector<UnsignedInt>& indices);
+        static void buildRock(const Vector3& pos, Float scale, UnsignedInt seed,
+                              std::vector<ChunkVertex>& vertices,
+                              std::vector<UnsignedInt>& indices);
+        static void buildCobblestoneRoad(const Vector3& pos,
+                                        std::vector<ChunkVertex>& vertices,
+                                        std::vector<UnsignedInt>& indices,
+                                        UnsignedByte connectionMask = 0,
+                                        Float deltaY = 0.0f,
+                                        Int rampDirX = 0,
+                                        Int rampDirZ = 0);
 
     private:
         // Helper to append a colored 3D axis-aligned box

@@ -33,6 +33,8 @@ add_executable(app
     world/WorldStorage.cpp
     world/WorldInputHandler.h
     world/WorldInputHandler.cpp
+    world/BuildSystem.h
+    world/BuildSystem.cpp
     ui/MenuManager.h
     ui/MenuManager.cpp
     ui/GameHUD.h

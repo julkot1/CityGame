@@ -2,21 +2,19 @@
 
 #include <Magnum/Magnum.h>
 #include <Magnum/Math/Vector2.h>
-#include <string>
+#include "world/BuildSystem.h"
+
 namespace Magnum {
 
 /**
- * Top-left HUD widget: FPS counter, frame time, chunk rendering and culling stats.
+ * Bottom-right HUD: Active build tool indicator, road/house/demolish buttons, placement status feedback.
  */
 class BuildHUD {
     public:
         explicit BuildHUD();
 
         void update(Float dt);
-        void draw(const Vector2i& windowSize);
-    private:
-        std::string selected{"None"};
-
+        void draw(const Vector2i& windowSize, BuildSystem& buildSystem, const PlacementValidation& validation);
 };
 
 }
