@@ -8,7 +8,7 @@
 #include "ui/TileInspectorHUD.h"
 #include "world/TimeManager.h"
 #include "world/World.h"
-#include "world/BuildSystem.h"
+#include "building/BuildSystem.h"
 
 namespace Magnum {
 

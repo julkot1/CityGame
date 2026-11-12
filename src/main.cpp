@@ -7,7 +7,7 @@
 #include "world/WorldInputHandler.h"
 #include "world/WorldStorage.h"
 #include "world/RandomWorldGenerator.h"
-#include "world/BuildSystem.h"
+#include "building/BuildSystem.h"
 #include "ui/MenuManager.h"
 #include "ui/GameHUD.h"
 #include <Corrade/Containers/StringView.h>
@@ -161,7 +161,7 @@ void MyApplication::keyPressEvent(KeyEvent& event) {
         return;
     }
 
-    // Number hotkeys for Build tools
+    // Number hotkeys for Build tools: [1] Road, [2] House, [3] Cottage, [4] City Center, [5] Plaza, [6] Demolish, [R] Rotate
     if(event.key() == Sdl2Application::Key::One) {
         _buildSystem.setActiveTool(
             _buildSystem.activeTool() == BuildTool::RoadCobblestone ? BuildTool::Inspect : BuildTool::RoadCobblestone
@@ -171,8 +171,48 @@ void MyApplication::keyPressEvent(KeyEvent& event) {
     }
     if(event.key() == Sdl2Application::Key::Two) {
         _buildSystem.setActiveTool(
+            _buildSystem.activeTool() == BuildTool::House2x2 ? BuildTool::Inspect : BuildTool::House2x2
+        );
+        event.setAccepted();
+        return;
+    }
+    if(event.key() == Sdl2Application::Key::Three) {
+        _buildSystem.setActiveTool(
+            _buildSystem.activeTool() == BuildTool::HouseStandalone2x2 ? BuildTool::Inspect : BuildTool::HouseStandalone2x2
+        );
+        event.setAccepted();
+        return;
+    }
+    if(event.key() == Sdl2Application::Key::Four) {
+        _buildSystem.setActiveTool(
+            _buildSystem.activeTool() == BuildTool::CityCenter2x3 ? BuildTool::Inspect : BuildTool::CityCenter2x3
+        );
+        event.setAccepted();
+        return;
+    }
+    if(event.key() == Sdl2Application::Key::Five) {
+        _buildSystem.setActiveTool(
+            _buildSystem.activeTool() == BuildTool::CityPlaza4x2 ? BuildTool::Inspect : BuildTool::CityPlaza4x2
+        );
+        event.setAccepted();
+        return;
+    }
+    if(event.key() == Sdl2Application::Key::Six) {
+        _buildSystem.setActiveTool(
+            _buildSystem.activeTool() == BuildTool::Warehouse4x4 ? BuildTool::Inspect : BuildTool::Warehouse4x4
+        );
+        event.setAccepted();
+        return;
+    }
+    if(event.key() == Sdl2Application::Key::Seven) {
+        _buildSystem.setActiveTool(
             _buildSystem.activeTool() == BuildTool::Demolish ? BuildTool::Inspect : BuildTool::Demolish
         );
+        event.setAccepted();
+        return;
+    }
+    if(event.key() == Sdl2Application::Key::R && _buildSystem.isBuilding()) {
+        _buildSystem.rotateBuilding();
         event.setAccepted();
         return;
     }
@@ -215,13 +255,14 @@ void MyApplication::drawEvent() {
 
     _timeManager.update(dt);
     _renderer.setTime(_elapsedTime);
+    _renderer.update(dt, _world);
 
     // Synchronize atmospheric lighting & sky clear color with TimeManager
     GL::Renderer::setClearColor(_timeManager.skyColor());
+    _renderer.setLightColor(_timeManager.lightColor());
+    _renderer.setAmbientColor(_timeManager.ambientColor());
     _renderer.terrainShader()
         .setLightDirection(_timeManager.lightDirection())
-        .setLightColor(_timeManager.lightColor())
-        .setAmbientColor(_timeManager.ambientColor())
         .setSkyColor(_timeManager.skyColor());
 
     _imgui.newFrame();
@@ -245,9 +286,13 @@ void MyApplication::drawEvent() {
 
         _worldInputHandler.update(_input, framebufferSize());
 
-        _renderer.render(_world, _camera, _worldInputHandler.hoverHit(), _worldInputHandler.selectedHit());
-
         PlacementValidation validation = _buildSystem.validatePlacement(_world, _worldInputHandler.hoverHit());
+
+        _renderer.render(_world, _camera,
+                         _worldInputHandler.hoverHit(),
+                         _worldInputHandler.selectedHit(),
+                         _buildSystem.toolFootprint(),
+                         !_buildSystem.isBuilding() || validation.valid);
 
         _gameHUD.update(dt);
         _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(), _world.chunks().size(),

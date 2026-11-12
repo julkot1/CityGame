@@ -18,6 +18,8 @@ add_executable(app
     world/TimeManager.cpp
     world/Tile.h
     world/Entity.h
+    world/ModelCache.h
+    world/ModelCache.cpp
     world/EntityModelRegistry.h
     world/EntityModelRegistry.cpp
     world/Chunk.h
@@ -33,8 +35,12 @@ add_executable(app
     world/WorldStorage.cpp
     world/WorldInputHandler.h
     world/WorldInputHandler.cpp
-    world/BuildSystem.h
-    world/BuildSystem.cpp
+    building/BuildingCatalog.h
+    building/BuildingCatalog.cpp
+    building/RoadNetwork.h
+    building/RoadNetwork.cpp
+    building/BuildSystem.h
+    building/BuildSystem.cpp
     ui/MenuManager.h
     ui/MenuManager.cpp
     ui/GameHUD.h
@@ -58,7 +64,10 @@ target_link_libraries(app PRIVATE
     Magnum::GL
     Magnum::Magnum
     Magnum::Shaders
-    MagnumIntegration::ImGui)
+    Magnum::Trade
+    MagnumIntegration::ImGui
+    MagnumPlugins::GltfImporter
+    Magnum::AnySceneImporter)
 
 # Automatically copy assets directory to build output so app finds them regardless of working dir
 add_custom_command(TARGET app POST_BUILD

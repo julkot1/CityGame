@@ -8,10 +8,24 @@
 #include <Corrade/Containers/ArrayViewStl.h>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 namespace Magnum {
 
 using namespace Math::Literals;
+
+namespace {
+
+Vector3 rotateYQuarterTurns(const Vector3& v, UnsignedInt rot) {
+    switch(rot & 3u) {
+        case 1u: return Vector3{ v.z(), v.y(), -v.x()};
+        case 2u: return Vector3{-v.x(), v.y(), -v.z()};
+        case 3u: return Vector3{-v.z(), v.y(),  v.x()};
+        default: return v;
+    }
+}
+
+}
 
 Renderer::Renderer() {
     GL::Renderer::setClearColor(0xa5c9ea_rgbf);
@@ -139,13 +153,102 @@ void Renderer::renderDriftingClouds(const World& world, const Matrix4&) {
     }
 }
 
+void Renderer::update(Float dt, const World& world) {
+    // 1. Advance existing puffs and remove expired ones
+    for(auto& p : _smokePuffs) {
+        p.age += dt;
+        Float wobble = std::sin(p.age * 2.5f + p.seed * 6.28f) * 0.05f;
+        p.pos += Vector3{(0.18f + wobble) * dt, 0.60f * dt, (0.08f + wobble * 0.5f) * dt};
+    }
+    _smokePuffs.erase(
+        std::remove_if(_smokePuffs.begin(), _smokePuffs.end(), [](const SmokePuff& p) {
+            return p.age >= 2.8f;
+        }),
+        _smokePuffs.end()
+    );
+
+    // 2. Spawn new puffs from chimneys periodically
+    _smokeSpawnTimer += dt;
+    if(_smokeSpawnTimer >= 0.35f) {
+        _smokeSpawnTimer = 0.0f;
+
+        const Float tileSpacing = world.tileSpacing();
+        for(const auto& pair : world.chunks()) {
+            const Chunk& chunk = pair.second;
+            const Vector3 chunkOrigin = chunk.worldPosition(tileSpacing);
+
+            for(const Entity& entity : chunk.entities()) {
+                Vector3 localChimney;
+                bool hasChimney = false;
+
+                if(entity.type == EntityType::House2x2) {
+                    localChimney = Vector3{0.55f, 3.12f, -0.27f};
+                    hasChimney = true;
+                } else if(entity.type == EntityType::HouseStandalone2x2) {
+                    localChimney = Vector3{0.57f, 2.42f, -0.22f};
+                    hasChimney = true;
+                } else if(entity.type == EntityType::CityCenter2x3) {
+                    localChimney = Vector3{0.56f, 2.70f, -1.22f};
+                    hasChimney = true;
+                }
+
+                if(hasChimney && _smokePuffs.size() < 300) {
+                    Vector3 chimneyPos = chunkOrigin + entity.position + rotateYQuarterTurns(localChimney, entity.data & 3u);
+                    Float seed = Float((_smokePuffs.size() * 37 + std::rand()) % 1000) / 1000.0f;
+                    Float size = 0.85f + seed * 0.35f;
+                    _smokePuffs.push_back(SmokePuff{chimneyPos, 0.0f, seed, size});
+                }
+            }
+        }
+    }
+}
+
+void Renderer::renderSmoke(const Matrix4& viewProjection) {
+    if(_smokePuffs.empty()) return;
+
+    GL::Renderer::enable(GL::Renderer::Feature::Blending);
+    GL::Renderer::setBlendFunction(
+        GL::Renderer::BlendFunction::SourceAlpha,
+        GL::Renderer::BlendFunction::OneMinusSourceAlpha
+    );
+
+    GL::Renderer::disable(GL::Renderer::Feature::FaceCulling);
+    GL::Renderer::setDepthMask(false);
+
+    for(const auto& p : _smokePuffs) {
+        Float progress = Math::clamp(p.age / 2.8f, 0.0f, 1.0f);
+
+        // Smooth quadratic ease-out fade
+        Float fade = 1.0f - progress;
+        fade = fade * (2.0f - fade);
+
+        // Dense base opacity fading smoothly with height
+        Float alpha = 0.82f * fade;
+
+        // Expanding volumetric size
+        Float scale = (0.14f + progress * 0.35f) * p.size;
+
+        Matrix4 model = Matrix4::translation(p.pos - Vector3{0.0f, scale * 0.5f, 0.0f})
+                      * Matrix4::scaling(Vector3{scale, scale * 1.15f, scale});
+
+        _flatShader.setColor(Color4{0.72f, 0.71f, 0.69f, alpha})
+                   .setTransformationProjectionMatrix(viewProjection * model);
+        _flatShader.draw(_highlightMesh);
+    }
+
+    GL::Renderer::setDepthMask(true);
+    GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
+}
+
 void Renderer::setViewport(const Vector2i& size) {
     GL::defaultFramebuffer.setViewport({{}, size});
 }
 
 void Renderer::render(const World& world, const Camera& camera,
                       const World::RaycastHit& hoverHit,
-                      const World::RaycastHit& selectedHit) {
+                      const World::RaycastHit& selectedHit,
+                      const Vector2i& hoverFootprint,
+                      bool hoverValid) {
     GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
 
     const Matrix4 viewProjection = camera.viewProjectionMatrix();
@@ -183,15 +286,16 @@ void Renderer::render(const World& world, const Camera& camera,
         const Chunk& chunk = entry.second;
         if(!chunk.hasMesh()) continue;
 
-        Vector3 minPos{
+        Vector3 chunkOrigin{
             Float(chunk.chunkCoord().x()) * chunkWorldSize,
             0.0f,
             Float(chunk.chunkCoord().y()) * chunkWorldSize
         };
-        Vector3 maxPos{
-            minPos.x() + chunkWorldSize,
+        Vector3 minPos = chunkOrigin - Vector3{2.0f, 0.0f, 2.0f};
+        Vector3 maxPos = chunkOrigin + Vector3{
+            chunkWorldSize + 2.0f,
             25.0f, // Max possible world height
-            minPos.z() + chunkWorldSize
+            chunkWorldSize + 2.0f
         };
 
         // AABB vs Frustum culling test
@@ -212,7 +316,7 @@ void Renderer::render(const World& world, const Camera& camera,
 
         if(outside) continue; // Culled! Skip drawing this chunk completely
 
-        Matrix4 modelMatrix = Matrix4::translation(minPos);
+        Matrix4 modelMatrix = Matrix4::translation(chunkOrigin);
         _shader.setTransformationMatrix(modelMatrix);
         _shader.draw(chunk.mesh());
         _lastDrawnChunks++;
@@ -251,8 +355,8 @@ void Renderer::render(const World& world, const Camera& camera,
         }
     }
 
-    // Render hover highlight overlay if hovering a valid tile (and not already selected)
-    if(hoverHit.hit && (!selectedHit.hit || hoverHit.worldTileX != selectedHit.worldTileX || hoverHit.worldTileZ != selectedHit.worldTileZ)) {
+    // Render hover highlight overlay if hovering a valid tile (supports arbitrary NxM building footprints)
+    if(hoverHit.hit && (hoverFootprint.x() > 1 || hoverFootprint.y() > 1 || !selectedHit.hit || hoverHit.worldTileX != selectedHit.worldTileX || hoverHit.worldTileZ != selectedHit.worldTileZ)) {
         const Chunk* ch = world.chunk(hoverHit.chunkCoord);
         if(ch) {
             const Tile& t = ch->tile(hoverHit.localTileCoord.x(), hoverHit.localTileCoord.y());
@@ -261,22 +365,32 @@ void Renderer::render(const World& world, const Camera& camera,
                 0.0f,
                 Float(hoverHit.chunkCoord.y()) * chunkWorldSize
             };
+            Float centerOffsetX = Float(hoverFootprint.x() - 1) * 0.5f * world.tileSpacing();
+            Float centerOffsetZ = Float(hoverFootprint.y() - 1) * 0.5f * world.tileSpacing();
             Vector3 tilePos = chunkPos + Vector3{
-                Float(hoverHit.localTileCoord.x()) * world.tileSpacing(),
+                Float(hoverHit.localTileCoord.x()) * world.tileSpacing() + centerOffsetX,
                 bobOffset * 0.6f,
-                Float(hoverHit.localTileCoord.y()) * world.tileSpacing()
+                Float(hoverHit.localTileCoord.y()) * world.tileSpacing() + centerOffsetZ
             };
 
-            // Scale to match height and slightly expand for outline overlay
-            Float scaleXZ = 1.015f + pulse * 0.015f;
+            // Scale to match footprint (NxM) and height
+            Float scaleX = Float(hoverFootprint.x()) + 0.02f + pulse * 0.015f;
+            Float scaleZ = Float(hoverFootprint.y()) + 0.02f + pulse * 0.015f;
             Matrix4 model = Matrix4::translation(tilePos) *
-                            Matrix4::scaling({scaleXZ, t.height * 1.02f, scaleXZ});
+                            Matrix4::scaling({scaleX, t.height * 1.02f, scaleZ});
 
-            _flatShader.setColor(Color4{1.0f, 0.90f, 0.25f, 0.38f + pulse * 0.20f}) // Warm pulsing brass highlight
+            Color4 hoverColor = hoverValid
+                ? Color4{1.0f, 0.90f, 0.25f, 0.38f + pulse * 0.20f}  // Warm pulsing brass/gold
+                : Color4{0.95f, 0.28f, 0.25f, 0.45f + pulse * 0.20f}; // Red invalid placement warning
+
+            _flatShader.setColor(hoverColor)
                        .setTransformationProjectionMatrix(viewProjection * model);
             _flatShader.draw(_highlightMesh);
         }
     }
+
+    // Render soft translucent chimney smoke plumes
+    renderSmoke(viewProjection);
 }
 
 }

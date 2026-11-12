@@ -1,0 +1,292 @@
+# ============================================================================
+# CityBuilder Master Material Palette (19th-Century Victorian / Steampunk)
+# ============================================================================
+# Format:
+#   newmtl <MaterialName>
+#   Kd <R> <G> <B>
+#   ao <float>   (0.0..1.0 = standard AO, 2.0 = flickering gaslight, 3.0+ao = wind foliage)
+# ============================================================================
+
+# --- 1. Architectural Masonry, Stone & Foundations ---
+newmtl Stone_Plinth
+Kd 0.35 0.35 0.37
+ao 0.72
+
+newmtl Stone_Curb
+Kd 0.44 0.43 0.41
+ao 0.92
+
+newmtl Cobble_Light
+Kd 0.38 0.37 0.36
+ao 0.94
+
+newmtl Cobble_Dark
+Kd 0.30 0.29 0.29
+ao 0.94
+
+newmtl Cobble_Warm
+Kd 0.41 0.36 0.31
+ao 0.94
+
+newmtl Mortar_Soot
+Kd 0.18 0.17 0.16
+ao 0.78
+
+newmtl Brick_Terracotta_Lower
+Kd 0.50 0.25 0.19
+ao 0.82
+
+newmtl Brick_Terracotta_Upper
+Kd 0.56 0.30 0.22
+ao 0.88
+
+newmtl Brick_Terracotta_AltLower
+Kd 0.46 0.26 0.20
+ao 0.82
+
+newmtl Brick_Chimney
+Kd 0.42 0.21 0.16
+ao 0.88
+
+newmtl Stucco_Cream
+Kd 0.68 0.62 0.50
+ao 0.88
+
+newmtl Yorkstone_Lower
+Kd 0.48 0.41 0.32
+ao 0.82
+
+newmtl Yorkstone_Upper
+Kd 0.55 0.47 0.36
+ao 0.88
+
+# --- 2. Timber, Roofing & Steampunk Metals ---
+newmtl Timber_DarkOak
+Kd 0.20 0.14 0.10
+ao 0.78
+
+newmtl Roof_SlateDark
+Kd 0.21 0.23 0.27
+ao 0.88
+
+newmtl Roof_SlateMid
+Kd 0.25 0.27 0.31
+ao 0.92
+
+newmtl Metal_CastIron
+Kd 0.12 0.13 0.14
+ao 0.80
+
+newmtl Metal_VerdigrisCopper
+Kd 0.34 0.52 0.44
+ao 0.94
+
+newmtl Metal_BrassPipe
+Kd 0.62 0.47 0.22
+ao 0.92
+
+# --- 3. Emissive Lighting (Flickering Gaslight, ao = 2.0) ---
+newmtl Emissive_GasWindow
+Kd 0.98 0.76 0.35
+ao 2.00
+
+newmtl Emissive_GasLantern
+Kd 1.00 0.78 0.36
+ao 2.00
+
+# --- 4. Natural Flora & Wind-Swaying Canopies (ao = 3.0 + baseAO) ---
+newmtl Trunk_Root
+Kd 0.21 0.14 0.10
+ao 0.60
+
+newmtl Trunk_Oak
+Kd 0.25 0.17 0.12
+ao 0.70
+
+newmtl Trunk_Pine
+Kd 0.23 0.15 0.10
+ao 0.70
+
+newmtl Foliage_Olive_Base
+Kd 0.22 0.30 0.16
+ao 3.79
+
+newmtl Foliage_Olive_Mid
+Kd 0.28 0.37 0.19
+ao 3.90
+
+newmtl Foliage_Olive_Crown
+Kd 0.35 0.43 0.22
+ao 3.98
+
+newmtl Foliage_Russet_Base
+Kd 0.38 0.20 0.11
+ao 3.79
+
+newmtl Foliage_Russet_Mid
+Kd 0.48 0.26 0.13
+ao 3.90
+
+newmtl Foliage_Russet_Crown
+Kd 0.58 0.33 0.15
+ao 3.98
+
+newmtl Foliage_Ochre_Base
+Kd 0.42 0.32 0.14
+ao 3.79
+
+newmtl Foliage_Ochre_Mid
+Kd 0.52 0.40 0.16
+ao 3.90
+
+newmtl Foliage_Ochre_Crown
+Kd 0.62 0.49 0.20
+ao 3.98
+
+newmtl Foliage_Sage_Base
+Kd 0.19 0.27 0.18
+ao 3.79
+
+newmtl Foliage_Sage_Mid
+Kd 0.25 0.33 0.21
+ao 3.90
+
+newmtl Foliage_Sage_Crown
+Kd 0.32 0.40 0.24
+ao 3.98
+
+newmtl Foliage_Pine_Tier1
+Kd 0.11 0.21 0.16
+ao 3.76
+
+newmtl Foliage_Pine_Tier2
+Kd 0.13 0.25 0.18
+ao 3.82
+
+newmtl Foliage_Pine_Tier3
+Kd 0.16 0.29 0.20
+ao 3.88
+
+newmtl Foliage_Pine_Tier4
+Kd 0.19 0.34 0.22
+ao 3.93
+
+newmtl Foliage_Pine_Spire
+Kd 0.22 0.38 0.24
+ao 3.98
+
+# --- 5. Rocks, Mineral Veins & Ancient Ruins ---
+newmtl Rock_Basalt_Dark
+Kd 0.31 0.32 0.35
+ao 0.68
+
+newmtl Rock_Basalt
+Kd 0.34 0.35 0.38
+ao 0.76
+
+newmtl Rock_Basalt_Light
+Kd 0.37 0.38 0.41
+ao 0.86
+
+newmtl Moss_Highland
+Kd 0.31 0.39 0.24
+ao 0.94
+
+newmtl Ore_Coal_Matrix
+Kd 0.24 0.25 0.27
+ao 0.68
+
+newmtl Ore_Coal_Primary
+Kd 0.10 0.11 0.13
+ao 0.80
+
+newmtl Ore_Coal_Secondary
+Kd 0.15 0.16 0.18
+ao 0.88
+
+newmtl Ore_Coal_Accent
+Kd 0.07 0.08 0.10
+ao 0.94
+
+newmtl Ore_Iron_Matrix
+Kd 0.34 0.30 0.28
+ao 0.68
+
+newmtl Ore_Iron_Primary
+Kd 0.52 0.24 0.16
+ao 0.80
+
+newmtl Ore_Iron_Secondary
+Kd 0.64 0.31 0.19
+ao 0.88
+
+newmtl Ore_Iron_Accent
+Kd 0.38 0.20 0.15
+ao 0.94
+
+newmtl Ore_Copper_Matrix
+Kd 0.32 0.34 0.33
+ao 0.68
+
+newmtl Ore_Copper_Primary
+Kd 0.24 0.48 0.40
+ao 0.80
+
+newmtl Ore_Copper_Secondary
+Kd 0.58 0.36 0.20
+ao 0.88
+
+newmtl Ore_Copper_Accent
+Kd 0.30 0.58 0.47
+ao 0.94
+
+newmtl Ruin_Stone_Weathered
+Kd 0.39 0.38 0.35
+ao 0.75
+
+newmtl Ruin_Stone_Base
+Kd 0.46 0.44 0.40
+ao 0.85
+
+# --- 6. Civic & Plaza Features ---
+newmtl Water_Fountain
+Kd 0.20 0.42 0.52
+ao 0.95
+
+newmtl Flower_Scarlet
+Kd 0.78 0.16 0.18
+ao 0.92
+
+newmtl Flower_Marigold
+Kd 0.88 0.65 0.12
+ao 0.92
+
+newmtl Hedge_Green
+Kd 0.24 0.35 0.16
+ao 0.90
+
+newmtl Statue_Bronze
+Kd 0.45 0.38 0.25
+ao 0.85
+
+newmtl Clock_Face
+Kd 0.95 0.92 0.82
+ao 2.00
+
+# --- 7. Atmospheric Chimney Smoke (ao = 5.0 + phase) ---
+newmtl Smoke_Puff_0
+Kd 0.76 0.74 0.71
+ao 5.00
+
+newmtl Smoke_Puff_1
+Kd 0.80 0.78 0.75
+ao 5.25
+
+newmtl Smoke_Puff_2
+Kd 0.84 0.82 0.79
+ao 5.50
+
+newmtl Smoke_Puff_3
+Kd 0.88 0.86 0.83
+ao 5.75
+

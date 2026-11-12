@@ -38,6 +38,26 @@ class EntityModelRegistry {
         static void buildAncientRuins(const Vector3& pos, Float scale, UnsignedInt seed,
                                       std::vector<ChunkVertex>& vertices,
                                       std::vector<UnsignedInt>& indices);
+        static void buildVictorianHouse2x2(const Vector3& pos, Float scale,
+                                           UnsignedInt seed, UnsignedInt orientation,
+                                           std::vector<ChunkVertex>& vertices,
+                                           std::vector<UnsignedInt>& indices);
+        static void buildVictorianHouseStandalone2x2(const Vector3& pos, Float scale,
+                                                     UnsignedInt seed, UnsignedInt orientation,
+                                                     std::vector<ChunkVertex>& vertices,
+                                                     std::vector<UnsignedInt>& indices);
+        static void buildCityCenter2x3(const Vector3& pos, Float scale,
+                                       UnsignedInt seed, UnsignedInt orientation,
+                                       std::vector<ChunkVertex>& vertices,
+                                       std::vector<UnsignedInt>& indices);
+        static void buildCityPlaza4x2(const Vector3& pos, Float scale,
+                                      UnsignedInt seed, UnsignedInt orientation,
+                                      std::vector<ChunkVertex>& vertices,
+                                      std::vector<UnsignedInt>& indices);
+        static void buildWarehouse4x4(const Vector3& pos, Float scale,
+                                      UnsignedInt seed, UnsignedInt orientation,
+                                      std::vector<ChunkVertex>& vertices,
+                                      std::vector<UnsignedInt>& indices);
         static void buildCobblestoneRoad(const Vector3& pos,
                                         std::vector<ChunkVertex>& vertices,
                                         std::vector<UnsignedInt>& indices,

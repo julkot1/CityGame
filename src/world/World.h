@@ -36,6 +36,11 @@ class World {
         Tile* tileAt(Int worldX, Int worldZ);
         const Tile* tileAt(Int worldX, Int worldZ) const;
 
+        // Cross-chunk entity queries and removal in world tile coordinates
+        Entity* entityAt(Int worldX, Int worldZ, Vector2i* outOwnerChunk = nullptr);
+        const Entity* entityAt(Int worldX, Int worldZ, Vector2i* outOwnerChunk = nullptr) const;
+        bool removeEntityAt(Int worldX, Int worldZ, Entity* outRemoved = nullptr, Vector2i* outOwnerChunk = nullptr);
+
         const std::map<std::pair<Int, Int>, Chunk>& chunks() const { return _chunks; }
 
         Float tileSpacing() const { return _tileSpacing; }

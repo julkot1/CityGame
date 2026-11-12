@@ -9,6 +9,7 @@
 #include <Magnum/Math/Vector3.h>
 #include "world/Tile.h"
 #include "world/Entity.h"
+#include "building/BuildingCatalog.h"
 
 namespace Magnum {
 
@@ -35,15 +36,16 @@ class Chunk {
         const std::array<Tile, Size * Size>& tiles() const { return _tiles; }
         std::array<Tile, Size * Size>& tiles() { return _tiles; }
 
-        // Entity Management
+        // Entity Management (uses BuildingCatalog to support arbitrary NxM footprints)
         const std::vector<Entity>& entities() const { return _entities; }
         std::vector<Entity>& entities() { return _entities; }
         void addEntity(const Entity& entity) { _entities.push_back(entity); }
         void clearEntities() { _entities.clear(); }
         bool removeEntityAt(Int x, Int z) {
             for(auto it = _entities.begin(); it != _entities.end(); ++it) {
-                if(Math::abs(it->position.x() - Float(x)) < 0.45f &&
-                   Math::abs(it->position.z() - Float(z)) < 0.45f) {
+                Vector2 halfExt = BuildingCatalog::entityHitHalfExtents(it->type, it->data & 3u);
+                if(Math::abs(it->position.x() - Float(x)) <= halfExt.x() &&
+                   Math::abs(it->position.z() - Float(z)) <= halfExt.y()) {
                     _entities.erase(it);
                     return true;
                 }
@@ -52,8 +54,9 @@ class Chunk {
         }
         Entity* entityAt(Int x, Int z) {
             for(auto& e : _entities) {
-                if(Math::abs(e.position.x() - Float(x)) < 0.45f &&
-                   Math::abs(e.position.z() - Float(z)) < 0.45f) {
+                Vector2 halfExt = BuildingCatalog::entityHitHalfExtents(e.type, e.data & 3u);
+                if(Math::abs(e.position.x() - Float(x)) <= halfExt.x() &&
+                   Math::abs(e.position.z() - Float(z)) <= halfExt.y()) {
                     return &e;
                 }
             }
@@ -61,8 +64,9 @@ class Chunk {
         }
         const Entity* entityAt(Int x, Int z) const {
             for(const auto& e : _entities) {
-                if(Math::abs(e.position.x() - Float(x)) < 0.45f &&
-                   Math::abs(e.position.z() - Float(z)) < 0.45f) {
+                Vector2 halfExt = BuildingCatalog::entityHitHalfExtents(e.type, e.data & 3u);
+                if(Math::abs(e.position.x() - Float(x)) <= halfExt.x() &&
+                   Math::abs(e.position.z() - Float(z)) <= halfExt.y()) {
                     return &e;
                 }
             }

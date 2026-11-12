@@ -14,7 +14,7 @@ void TileInspectorHUD::draw(const Vector2i& windowSize, const World& world, cons
     if(!ch) return;
 
     const Tile& tile = ch->tile(selectedHit.localTileCoord.x(), selectedHit.localTileCoord.y());
-    const Entity* entity = ch->entityAt(selectedHit.localTileCoord.x(), selectedHit.localTileCoord.y());
+    const Entity* entity = world.entityAt(selectedHit.worldTileX, selectedHit.worldTileZ);
 
     constexpr float padding = 16.0f;
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
@@ -122,6 +122,26 @@ void TileInspectorHUD::draw(const Vector2i& windowSize, const World& world, cons
                 case EntityType::RoadCobblestone:
                     entityName = "Cobblestone Street";
                     entColor = UIStyle::Colors::AmberGold;
+                    break;
+                case EntityType::House2x2:
+                    entityName = "Townhouse";
+                    entColor = ImVec4(0.95f, 0.72f, 0.35f, 1.0f);
+                    break;
+                case EntityType::HouseStandalone2x2:
+                    entityName = "Standalone Cottage";
+                    entColor = ImVec4(0.95f, 0.72f, 0.35f, 1.0f);
+                    break;
+                case EntityType::CityCenter2x3:
+                    entityName = "Victorian City Center";
+                    entColor = ImVec4(0.95f, 0.85f, 0.45f, 1.0f);
+                    break;
+                case EntityType::CityPlaza4x2:
+                    entityName = "Victorian City Plaza";
+                    entColor = ImVec4(0.55f, 0.82f, 0.90f, 1.0f);
+                    break;
+                case EntityType::Warehouse4x4:
+                    entityName = "Industrial Warehouse (4x4)";
+                    entColor = ImVec4(0.85f, 0.65f, 0.45f, 1.0f);
                     break;
                 default:
                     break;

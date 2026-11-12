@@ -160,4 +160,83 @@ const Tile* World::tileAt(Int worldX, Int worldZ) const {
     return &ch->tile(local.x(), local.y());
 }
 
+Entity* World::entityAt(Int worldX, Int worldZ, Vector2i* outOwnerChunk) {
+    Vector2i centerCC = worldToChunkCoord(worldX, worldZ);
+    // Search target chunk and immediate neighbor chunks so multi-tile buildings crossing borders are found
+    for(Int dz = -1; dz <= 1; ++dz) {
+        for(Int dx = -1; dx <= 1; ++dx) {
+            Vector2i cc{centerCC.x() + dx, centerCC.y() + dz};
+            Chunk* ch = chunk(cc);
+            if(!ch) continue;
+
+            Float chunkBaseX = Float(cc.x() * Chunk::Size);
+            Float chunkBaseZ = Float(cc.y() * Chunk::Size);
+            for(auto& e : ch->entities()) {
+                Vector2 halfExt = BuildingCatalog::entityHitHalfExtents(e.type, e.data & 3u);
+                Float wx = chunkBaseX + e.position.x();
+                Float wz = chunkBaseZ + e.position.z();
+                if(Math::abs(wx - Float(worldX)) <= halfExt.x() &&
+                   Math::abs(wz - Float(worldZ)) <= halfExt.y()) {
+                    if(outOwnerChunk) *outOwnerChunk = cc;
+                    return &e;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+const Entity* World::entityAt(Int worldX, Int worldZ, Vector2i* outOwnerChunk) const {
+    Vector2i centerCC = worldToChunkCoord(worldX, worldZ);
+    for(Int dz = -1; dz <= 1; ++dz) {
+        for(Int dx = -1; dx <= 1; ++dx) {
+            Vector2i cc{centerCC.x() + dx, centerCC.y() + dz};
+            const Chunk* ch = chunk(cc);
+            if(!ch) continue;
+
+            Float chunkBaseX = Float(cc.x() * Chunk::Size);
+            Float chunkBaseZ = Float(cc.y() * Chunk::Size);
+            for(const auto& e : ch->entities()) {
+                Vector2 halfExt = BuildingCatalog::entityHitHalfExtents(e.type, e.data & 3u);
+                Float wx = chunkBaseX + e.position.x();
+                Float wz = chunkBaseZ + e.position.z();
+                if(Math::abs(wx - Float(worldX)) <= halfExt.x() &&
+                   Math::abs(wz - Float(worldZ)) <= halfExt.y()) {
+                    if(outOwnerChunk) *outOwnerChunk = cc;
+                    return &e;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool World::removeEntityAt(Int worldX, Int worldZ, Entity* outRemoved, Vector2i* outOwnerChunk) {
+    Vector2i centerCC = worldToChunkCoord(worldX, worldZ);
+    for(Int dz = -1; dz <= 1; ++dz) {
+        for(Int dx = -1; dx <= 1; ++dx) {
+            Vector2i cc{centerCC.x() + dx, centerCC.y() + dz};
+            Chunk* ch = chunk(cc);
+            if(!ch) continue;
+
+            Float chunkBaseX = Float(cc.x() * Chunk::Size);
+            Float chunkBaseZ = Float(cc.y() * Chunk::Size);
+            auto& ents = ch->entities();
+            for(auto it = ents.begin(); it != ents.end(); ++it) {
+                Vector2 halfExt = BuildingCatalog::entityHitHalfExtents(it->type, it->data & 3u);
+                Float wx = chunkBaseX + it->position.x();
+                Float wz = chunkBaseZ + it->position.z();
+                if(Math::abs(wx - Float(worldX)) <= halfExt.x() &&
+                   Math::abs(wz - Float(worldZ)) <= halfExt.y()) {
+                    if(outRemoved) *outRemoved = *it;
+                    if(outOwnerChunk) *outOwnerChunk = cc;
+                    ents.erase(it);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 }

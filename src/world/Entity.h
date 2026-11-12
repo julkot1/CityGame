@@ -14,7 +14,12 @@ enum class EntityType : UnsignedShort {
     CoalDeposit,
     IronDeposit,
     CopperDeposit,
-    AncientRuins
+    AncientRuins,
+    House2x2,
+    HouseStandalone2x2,
+    CityCenter2x3,
+    CityPlaza4x2,
+    Warehouse4x4
 };
 
 struct Entity {
