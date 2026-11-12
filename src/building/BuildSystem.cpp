@@ -108,27 +108,27 @@ PlacementValidation BuildSystem::validateBlueprintPlacement(const World& world, 
     return {true, std::string{"Ready to construct "} + bp.name};
 }
 
-bool BuildSystem::executeAction(World& world, const World::RaycastHit& hit) {
+bool BuildSystem::executeAction(World& world, const World::RaycastHit& hit, std::vector<ChunkMeshData>* outDirtyMeshes) {
     PlacementValidation val = validatePlacement(world, hit);
     if(!val.valid) {
         return false;
     }
 
     if(_activeTool == BuildTool::Demolish) {
-        return executeDemolish(world, hit.worldTileX, hit.worldTileZ);
+        return executeDemolish(world, hit.worldTileX, hit.worldTileZ, outDirtyMeshes);
     }
 
     if(const BuildingBlueprint* bp = activeBlueprint()) {
         if(bp->isRoadNetwork) {
-            return executeRoadPlacement(world, hit, *bp);
+            return executeRoadPlacement(world, hit, *bp, outDirtyMeshes);
         }
-        return executeStructurePlacement(world, hit, *bp);
+        return executeStructurePlacement(world, hit, *bp, outDirtyMeshes);
     }
 
     return false;
 }
 
-bool BuildSystem::executeDemolish(World& world, Int worldX, Int worldZ) {
+bool BuildSystem::executeDemolish(World& world, Int worldX, Int worldZ, std::vector<ChunkMeshData>* outDirtyMeshes) {
     Entity removedEntity;
     Vector2i ownerCC;
     if(!world.removeEntityAt(worldX, worldZ, &removedEntity, &ownerCC)) {
@@ -162,16 +162,18 @@ bool BuildSystem::executeDemolish(World& world, Int worldX, Int worldZ) {
 
     for(const auto& ccPair : dirtyChunks) {
         if(Chunk* ch = world.chunk({ccPair.first, ccPair.second})) {
-            ch->buildMesh(world.tileSpacing());
+            if(outDirtyMeshes) {
+                outDirtyMeshes->push_back(ch->buildCpuMesh(world.tileSpacing()));
+            }
         }
     }
 
-    RoadNetwork::updateConnectionsAround(world, worldX, worldZ);
+    RoadNetwork::updateConnectionsAround(world, worldX, worldZ, outDirtyMeshes);
     return true;
 }
 
 bool BuildSystem::executeRoadPlacement(World& world, const World::RaycastHit& hit,
-                                       const BuildingBlueprint& bp) {
+                                       const BuildingBlueprint& bp, std::vector<ChunkMeshData>* outDirtyMeshes) {
     Chunk* chunk = world.chunk(hit.chunkCoord);
     if(!chunk) return false;
 
@@ -199,13 +201,15 @@ bool BuildSystem::executeRoadPlacement(World& world, const World::RaycastHit& hi
                 ((static_cast<uint32_t>(mmDelta) & 0xFFFF) << 16);
 
     chunk->addEntity(road);
-    chunk->buildMesh(world.tileSpacing());
-    RoadNetwork::updateConnectionsAround(world, wx, wz);
+    if(outDirtyMeshes) {
+        outDirtyMeshes->push_back(chunk->buildCpuMesh(world.tileSpacing()));
+    }
+    RoadNetwork::updateConnectionsAround(world, wx, wz, outDirtyMeshes);
     return true;
 }
 
 bool BuildSystem::executeStructurePlacement(World& world, const World::RaycastHit& hit,
-                                            const BuildingBlueprint& bp) {
+                                            const BuildingBlueprint& bp, std::vector<ChunkMeshData>* outDirtyMeshes) {
     Chunk* ownerChunk = world.chunk(hit.chunkCoord);
     if(!ownerChunk) return false;
 
@@ -277,10 +281,12 @@ bool BuildSystem::executeStructurePlacement(World& world, const World::RaycastHi
 
     ownerChunk->addEntity(structure);
 
-    // 5. Rebuild meshes of all chunks modified by this structure
+    // 5. Rebuild CPU meshes of all chunks modified by this structure
     for(const auto& ccPair : dirtyChunks) {
         if(Chunk* ch = world.chunk({ccPair.first, ccPair.second})) {
-            ch->buildMesh(world.tileSpacing());
+            if(outDirtyMeshes) {
+                outDirtyMeshes->push_back(ch->buildCpuMesh(world.tileSpacing()));
+            }
         }
     }
     return true;

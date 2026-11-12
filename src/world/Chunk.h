@@ -3,22 +3,14 @@
 #include <array>
 #include <vector>
 #include <Magnum/Magnum.h>
-#include <Magnum/GL/Mesh.h>
-#include <Magnum/GL/Buffer.h>
 #include <Magnum/Math/Vector2.h>
 #include <Magnum/Math/Vector3.h>
 #include "world/Tile.h"
 #include "world/Entity.h"
+#include "world/ChunkMeshData.h"
 #include "building/BuildingCatalog.h"
 
 namespace Magnum {
-
-struct ChunkVertex {
-    Vector3 position;
-    Vector3 normal;
-    Color3 color;
-    Float ao; // Ambient occlusion factor (0.0 = deep shadow corner, 1.0 = fully exposed)
-};
 
 class Chunk {
     public:
@@ -73,20 +65,13 @@ class Chunk {
             return nullptr;
         }
 
-        void buildMesh(Float tileSpacing = 0.0f);
-        bool hasMesh() const { return _meshGenerated; }
-        GL::Mesh& mesh() { return _mesh; }
-        GL::Mesh& mesh() const { return _mesh; }
+        // Generates pure CPU geometry (vertices, normals, colors, AO tags, indices) without touching OpenGL
+        ChunkMeshData buildCpuMesh(Float tileSpacing = 0.0f) const;
 
     private:
         Vector2i _chunkCoord{0, 0};
         std::array<Tile, Size * Size> _tiles;
         std::vector<Entity> _entities;
-
-        mutable GL::Mesh _mesh;
-        GL::Buffer _vertexBuffer{NoCreate};
-        GL::Buffer _indexBuffer{NoCreate};
-        bool _meshGenerated{false};
 };
 
 }

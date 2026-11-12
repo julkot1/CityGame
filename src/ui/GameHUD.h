@@ -27,7 +27,9 @@ class GameHUD {
                   const World* world = nullptr,
                   const World::RaycastHit& selectedHit = {},
                   BuildSystem* buildSystem = nullptr,
-                  const PlacementValidation& validation = {});
+                  const PlacementValidation& validation = {},
+                  Float simTPS = 60.0f,
+                  Float simTickDurationMs = 0.0f);
 
         PerformanceHUD& performanceHUD() { return _performanceHUD; }
         TimeHUD& timeHUD() { return _timeHUD; }

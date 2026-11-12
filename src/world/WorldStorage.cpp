@@ -161,8 +161,6 @@ bool WorldStorage::loadFromFile(World& world, const std::string& filepath) {
                 chunk.addEntity(e);
             }
         }
-
-        chunk.buildMesh(world.tileSpacing());
     }
 
     Debug{} << "World loaded successfully from:" << filepath.c_str() << "(" << chunkCount << "chunks)";

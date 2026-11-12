@@ -23,7 +23,7 @@ class RoadNetwork {
         static UnsignedByte computeRoadMask(const World& world, Int worldX, Int worldZ);
 
         // Updates the connectivity mask of the road at (worldX, worldZ) and its 4 cardinal neighbors (even across chunks)
-        static void updateConnectionsAround(World& world, Int worldX, Int worldZ);
+        static void updateConnectionsAround(World& world, Int worldX, Int worldZ, std::vector<ChunkMeshData>* outDirtyMeshes = nullptr);
 
         // Evaluates terrain leveling and stepped ramp parameters in world coordinates
         static RoadPlacementPlan evaluatePlacement(const World& world, Int worldX, Int worldZ);

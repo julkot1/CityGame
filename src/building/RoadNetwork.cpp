@@ -24,7 +24,7 @@ UnsignedByte RoadNetwork::computeRoadMask(const World& world, Int worldX, Int wo
     return mask;
 }
 
-void RoadNetwork::updateConnectionsAround(World& world, Int worldX, Int worldZ) {
+void RoadNetwork::updateConnectionsAround(World& world, Int worldX, Int worldZ, std::vector<ChunkMeshData>* outDirtyMeshes) {
     const Int offsets[5][2] = {{0, 0}, {0, 1}, {1, 0}, {0, -1}, {-1, 0}};
     std::set<std::pair<Int, Int>> dirtyChunks;
 
@@ -45,7 +45,9 @@ void RoadNetwork::updateConnectionsAround(World& world, Int worldX, Int worldZ) 
 
     for(const auto& ccPair : dirtyChunks) {
         if(Chunk* ch = world.chunk({ccPair.first, ccPair.second})) {
-            ch->buildMesh(world.tileSpacing());
+            if(outDirtyMeshes) {
+                outDirtyMeshes->push_back(ch->buildCpuMesh(world.tileSpacing()));
+            }
         }
     }
 }

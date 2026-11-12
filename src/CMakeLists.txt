@@ -14,6 +14,8 @@ add_executable(app
     rendering/Renderer.cpp
     rendering/TerrainShader.h
     rendering/TerrainShader.cpp
+    rendering/RenderChunk.h
+    world/ChunkMeshData.h
     world/TimeManager.h
     world/TimeManager.cpp
     world/Tile.h
@@ -41,6 +43,11 @@ add_executable(app
     building/RoadNetwork.cpp
     building/BuildSystem.h
     building/BuildSystem.cpp
+    simulation/SimulationThread.h
+    simulation/SimulationThread.cpp
+    threading/ConcurrentQueue.h
+    threading/SimulationCommand.h
+    threading/TimeLightingSnapshot.h
     ui/MenuManager.h
     ui/MenuManager.cpp
     ui/GameHUD.h

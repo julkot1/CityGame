@@ -26,6 +26,9 @@ class World {
         void init(Int chunkWidth = WorldChunkWidth, Int chunkHeight = WorldChunkHeight);
         void clear() { _chunks.clear(); }
 
+        // Builds CPU vertex/index buffers for all chunks in the world
+        std::vector<ChunkMeshData> buildAllCpuMeshes() const;
+
         Int chunkWidth() const { return _chunkWidth; }
         Int chunkHeight() const { return _chunkHeight; }
 
@@ -62,6 +65,7 @@ class World {
             Int worldTileX{0};
             Int worldTileZ{0};
             Vector3 worldPoint{0.0f};
+            Float tileHeight{0.0f};
         };
 
         RaycastHit raycastTile(const Vector3& rayOrigin, const Vector3& rayDir) const;

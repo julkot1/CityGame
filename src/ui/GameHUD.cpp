@@ -15,9 +15,11 @@ void GameHUD::draw(const Vector2i& windowSize,
                     const World* world,
                     const World::RaycastHit& selectedHit,
                     BuildSystem* buildSystem,
-                    const PlacementValidation& validation) {
+                    const PlacementValidation& validation,
+                    Float simTPS,
+                    Float simTickDurationMs) {
     // 1. Top-Left: Performance & culling stats
-    _performanceHUD.draw(windowSize, renderedChunks, totalChunks);
+    _performanceHUD.draw(windowSize, renderedChunks, totalChunks, simTPS, simTickDurationMs);
 
     // 2. Top-Right: Celestial clock & time speed controls
     if(timeManager) {

@@ -8,6 +8,8 @@
 #include "world/WorldStorage.h"
 #include "world/RandomWorldGenerator.h"
 #include "building/BuildSystem.h"
+#include "simulation/SimulationThread.h"
+#include "threading/SimulationCommand.h"
 #include "ui/MenuManager.h"
 #include "ui/GameHUD.h"
 #include <Corrade/Containers/StringView.h>
@@ -21,12 +23,15 @@
 #include <Magnum/ImGuiIntegration/Context.hpp>
 #include <imgui.h>
 #include <fstream>
+#include <shared_mutex>
+#include <cmath>
 
 using namespace Magnum;
 
 class MyApplication: public Platform::Application {
     public:
         explicit MyApplication(const Arguments& arguments);
+        ~MyApplication();
 
     private:
         void viewportEvent(ViewportEvent& event) override;
@@ -41,10 +46,12 @@ class MyApplication: public Platform::Application {
 
         MenuManager _menuManager;
         GameHUD _gameHUD;
-        TimeManager _timeManager;
+        TimeManager _renderTimeManager;
         BuildSystem _buildSystem;
 
         World _world{1.0f};
+        SimulationThread _simThread{_world};
+
         Renderer _renderer;
         Timeline _timeline;
         Camera _camera;
@@ -98,40 +105,73 @@ MyApplication::MyApplication(const Arguments& arguments):
     
     _menuManager.applyCustomTheme();
 
-    _menuManager.setOnCreateWorld([this](const WorldCreationParams& params) {
-        auto randGen = dynamic_cast<RandomWorldGenerator*>(_world.generator());
-        if(randGen) {
-            randGen->setArchetype(static_cast<WorldArchetype>(params.archetype));
-            randGen->setFlatness(params.flatness);
-            randGen->setMountainScale(params.mountainScale);
-            randGen->setRiverIntensity(params.riverIntensity);
-            randGen->setForestDensity(params.forestDensity);
-            randGen->setResourceDensity(params.resourceDensity);
-            randGen->setSeaLevel(params.seaLevel);
-            randGen->setSeed(params.seed);
-        }
+    // Load or generate initial world
+    WorldStorage::loadOrGenerate(_world, "world.save");
 
-        _world.init(params.worldWidthChunks, params.worldHeightChunks);
-        WorldStorage::saveToFile(_world, "world.save");
+    // Initialize renderer bounds and upload all initial chunk meshes to GPU
+    _renderer.setWorldBounds(_world.minWorldX(), _world.maxWorldX(),
+                             _world.minWorldZ(), _world.maxWorldZ(),
+                             _world.tileSpacing());
+    for(auto& meshData : _world.buildAllCpuMeshes()) {
+        _renderer.uploadChunkMesh(std::move(meshData));
+    }
+
+    // Start simulation worker thread
+    _simThread.start();
+
+    _menuManager.setOnCreateWorld([this](const WorldCreationParams& params) {
+        _renderer.clearRenderChunks();
+        Float halfW = (params.worldWidthChunks * Chunk::Size * _world.tileSpacing()) * 0.5f;
+        Float halfH = (params.worldHeightChunks * Chunk::Size * _world.tileSpacing()) * 0.5f;
+        _renderer.setWorldBounds(-halfW, halfW, -halfH, halfH, _world.tileSpacing());
+
+        SimulationCommand cmd;
+        cmd.type = SimulationCommandType::CreateNewWorld;
+        cmd.worldParams = params;
+        _simThread.postCommand(cmd);
 
         _camera.setTarget(Vector3{0.0f});
     });
     _menuManager.setOnSaveWorld([this]() {
-        WorldStorage::saveToFile(_world, "world.save");
+        SimulationCommand cmd;
+        cmd.type = SimulationCommandType::SaveWorld;
+        cmd.filename = "world.save";
+        _simThread.postCommand(cmd);
     });
     _menuManager.setOnExit([this]() {
+        _simThread.stop();
         exit();
     });
 
     // World Input callback: Left-click places road or demolishes when in build mode
     _worldInputHandler.setOnTileLeftClick([this](const World::RaycastHit& hit, Input::Pointer) {
-        if(_buildSystem.isBuilding()) {
-            _buildSystem.executeAction(_world, hit);
+        if(_buildSystem.isBuilding() && hit.hit) {
+            SimulationCommand cmd;
+            if(_buildSystem.activeTool() == BuildTool::Demolish) {
+                cmd.type = SimulationCommandType::Demolish;
+            } else {
+                cmd.type = SimulationCommandType::PlaceStructure;
+                cmd.tool = _buildSystem.activeTool();
+                cmd.orientation = _buildSystem.buildingOrientation();
+            }
+            cmd.worldX = hit.worldTileX;
+            cmd.worldZ = hit.worldTileZ;
+            _simThread.postCommand(cmd);
         }
     });
 
-    Debug{} << "CityBuilder Initialized!";
+    _worldInputHandler.setOnTileRightClick([this](const World::RaycastHit&, Input::Pointer) {
+        if(_buildSystem.isBuilding()) {
+            _buildSystem.setActiveTool(BuildTool::Inspect);
+        }
+    });
+
+    Debug{} << "CityBuilder Initialized with Multithreaded Simulation & Renderer!";
     _timeline.start();
+}
+
+MyApplication::~MyApplication() {
+    _simThread.stop();
 }
 
 void MyApplication::viewportEvent(ViewportEvent& event) {
@@ -253,17 +293,34 @@ void MyApplication::drawEvent() {
     Float dt = _timeline.previousFrameDuration();
     _elapsedTime += dt;
 
-    _timeManager.update(dt);
-    _renderer.setTime(_elapsedTime);
-    _renderer.update(dt, _world);
+    // 1. Drain pending finished CPU chunk meshes from simulation and upload to GPU
+    std::vector<ChunkMeshData> pendingMeshes;
+    _simThread.drainMeshUploads(pendingMeshes);
+    for(auto& meshData : pendingMeshes) {
+        _renderer.uploadChunkMesh(std::move(meshData));
+    }
 
-    // Synchronize atmospheric lighting & sky clear color with TimeManager
-    GL::Renderer::setClearColor(_timeManager.skyColor());
-    _renderer.setLightColor(_timeManager.lightColor());
-    _renderer.setAmbientColor(_timeManager.ambientColor());
+    // 2. Fetch thread-safe lighting & celestial snapshot and chimney positions
+    TimeLightingSnapshot snap = _simThread.getLightingSnapshot();
+    std::vector<Vector3> chimneys = _simThread.getChimneyPositions();
+
+    _renderer.setTime(_elapsedTime);
+    _renderer.update(dt, chimneys);
+
+    // Synchronize atmospheric lighting & sky clear color with snapshot
+    GL::Renderer::setClearColor(snap.skyColor);
+    _renderer.setLightColor(snap.lightColor);
+    _renderer.setAmbientColor(snap.ambientColor);
     _renderer.terrainShader()
-        .setLightDirection(_timeManager.lightDirection())
-        .setSkyColor(_timeManager.skyColor());
+        .setLightDirection(snap.lightDirection)
+        .setSkyColor(snap.skyColor);
+
+    // Sync render-side time manager from snapshot for HUD display
+    _renderTimeManager.setTimeOfDay(snap.timeOfDay);
+    if(snap.isPaused != _renderTimeManager.isPaused()) {
+        _renderTimeManager.togglePaused();
+    }
+    _renderTimeManager.setTimeSpeed(snap.timeSpeed);
 
     _imgui.newFrame();
 
@@ -276,28 +333,67 @@ void MyApplication::drawEvent() {
     if(_menuManager.isMenuOpen()) {
         _camera.rotate(Rad{0.08f * dt}, 0.0_radf);
 
-        _renderer.render(_world, _camera);
+        _renderer.render(_camera);
 
         _menuManager.draw(windowSize());
     } else {
-        const Vector3 minBounds{_world.minWorldX(), 0.0f, _world.minWorldZ()};
-        const Vector3 maxBounds{_world.maxWorldX(), 0.0f, _world.maxWorldZ()};
+        Float minX, maxX, minZ, maxZ;
+        {
+            std::shared_lock<std::shared_mutex> lock(_simThread.worldMutex());
+            minX = _world.minWorldX();
+            maxX = _world.maxWorldX();
+            minZ = _world.minWorldZ();
+            maxZ = _world.maxWorldZ();
+        }
+        const Vector3 minBounds{minX, 0.0f, minZ};
+        const Vector3 maxBounds{maxX, 0.0f, maxZ};
         _cameraController.update(_input, dt, minBounds, maxBounds);
 
-        _worldInputHandler.update(_input, framebufferSize());
+        PlacementValidation validation;
+        {
+            std::shared_lock<std::shared_mutex> lock(_simThread.worldMutex());
+            _worldInputHandler.update(_input, framebufferSize());
+            validation = _buildSystem.validatePlacement(_world, _worldInputHandler.hoverHit());
+        }
 
-        PlacementValidation validation = _buildSystem.validatePlacement(_world, _worldInputHandler.hoverHit());
-
-        _renderer.render(_world, _camera,
+        _renderer.render(_camera,
                          _worldInputHandler.hoverHit(),
                          _worldInputHandler.selectedHit(),
                          _buildSystem.toolFootprint(),
                          !_buildSystem.isBuilding() || validation.valid);
 
         _gameHUD.update(dt);
-        _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(), _world.chunks().size(),
-                      &_timeManager, &_world, _worldInputHandler.selectedHit(),
-                      &_buildSystem, validation);
+
+        bool hudPausedBefore = _renderTimeManager.isPaused();
+        Float hudSpeedBefore = _renderTimeManager.timeSpeed();
+        Float hudTimeBefore = _renderTimeManager.timeOfDay();
+
+        {
+            std::shared_lock<std::shared_mutex> lock(_simThread.worldMutex());
+            _gameHUD.draw(windowSize(), _renderer.lastDrawnChunks(),
+                          _renderer.totalRenderChunks(),
+                          &_renderTimeManager, &_world, _worldInputHandler.selectedHit(),
+                          &_buildSystem, validation,
+                          _simThread.tps(), _simThread.tickDurationMs());
+        }
+
+        if(_renderTimeManager.isPaused() != hudPausedBefore) {
+            SimulationCommand cmd;
+            cmd.type = SimulationCommandType::TimeTogglePause;
+            _simThread.postCommand(cmd);
+        }
+        if(_renderTimeManager.timeSpeed() != hudSpeedBefore) {
+            SimulationCommand cmd;
+            cmd.type = SimulationCommandType::TimeSetSpeed;
+            cmd.timeValue = _renderTimeManager.timeSpeed();
+            _simThread.postCommand(cmd);
+        }
+        if(std::abs(_renderTimeManager.timeOfDay() - hudTimeBefore) > 0.001f) {
+            SimulationCommand cmd;
+            cmd.type = SimulationCommandType::TimeSetTimeOfDay;
+            cmd.timeValue = _renderTimeManager.timeOfDay();
+            _simThread.postCommand(cmd);
+        }
     }
 
     // Enable/disable appropriate GL states for 2D UI rendering
@@ -318,7 +414,8 @@ void MyApplication::drawEvent() {
     if(_fpsTimeAccumulator >= 1.0f) {
         Float fps = Float(_fpsFrameCount) / _fpsTimeAccumulator;
         Float frameTimeMs = (_fpsTimeAccumulator / Float(_fpsFrameCount)) * 1000.0f;
-        setWindowTitle(Utility::formatString("City Builder - {:.1f} FPS ({:.2f} ms)", fps, frameTimeMs));
+        setWindowTitle(Utility::formatString("City Builder - {:.1f} FPS ({:.2f} ms) | Sim: {:.0f} TPS ({:.2f} ms)",
+                                             fps, frameTimeMs, _simThread.tps(), _simThread.tickDurationMs()));
 
         _fpsFrameCount = 0;
         _fpsTimeAccumulator = 0.0f;

@@ -17,7 +17,8 @@ void PerformanceHUD::update(Float dt) {
     }
 }
 
-void PerformanceHUD::draw(const Vector2i&, UnsignedInt renderedChunks, UnsignedInt totalChunks) {
+void PerformanceHUD::draw(const Vector2i&, UnsignedInt renderedChunks, UnsignedInt totalChunks,
+                          Float simTPS, Float simTickDurationMs) {
     constexpr float padding = 16.0f;
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
                              ImGuiWindowFlags_AlwaysAutoResize |
@@ -44,9 +45,15 @@ void PerformanceHUD::draw(const Vector2i&, UnsignedInt renderedChunks, UnsignedI
             fpsColor = UIStyle::Colors::SoftRed;
         }
 
-        ImGui::TextColored(fpsColor, "%.1f FPS", static_cast<double>(_currentFps));
+        ImGui::TextColored(fpsColor, "RENDER: %.1f FPS", static_cast<double>(_currentFps));
         ImGui::SameLine();
         ImGui::TextDisabled("| %.2f ms", static_cast<double>(_currentFrameTimeMs));
+
+        // Display Simulation Thread TPS
+        ImVec4 tpsColor = (simTPS >= 55.0f) ? UIStyle::Colors::NeonGreen : ((simTPS >= 30.0f) ? UIStyle::Colors::AmberGold : UIStyle::Colors::SoftRed);
+        ImGui::TextColored(tpsColor, "SIM:    %.1f TPS", static_cast<double>(simTPS));
+        ImGui::SameLine();
+        ImGui::TextDisabled("| %.2f ms", static_cast<double>(simTickDurationMs));
 
         ImGui::Spacing();
         ImGui::Text("Chunks: %u / %u", renderedChunks, totalChunks);

@@ -13,7 +13,8 @@ class PerformanceHUD {
         explicit PerformanceHUD();
 
         void update(Float dt);
-        void draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks);
+        void draw(const Vector2i& windowSize, UnsignedInt renderedChunks, UnsignedInt totalChunks,
+                  Float simTPS = 60.0f, Float simTickDurationMs = 0.0f);
 
         Float currentFps() const { return _currentFps; }
         Float currentFrameTimeMs() const { return _currentFrameTimeMs; }

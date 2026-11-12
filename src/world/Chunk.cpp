@@ -4,7 +4,6 @@
 #include <Corrade/Containers/ArrayView.h>
 #include <Corrade/Containers/ArrayViewStl.h>
 #include <Corrade/Utility/DebugAssert.h>
-#include <Magnum/Shaders/VertexColorGL.h>
 #include <random>
 using namespace std;
 namespace Magnum {
@@ -43,7 +42,7 @@ Vector3 Chunk::worldPosition(Float tileSpacing) const {
     };
 }
 
-void Chunk::buildMesh(Float tileSpacing) {
+ChunkMeshData Chunk::buildCpuMesh(Float tileSpacing) const {
     std::vector<ChunkVertex> vertices;
     std::vector<UnsignedInt> indices;
     vertices.reserve(Size * Size * 24);
@@ -201,21 +200,7 @@ void Chunk::buildMesh(Float tileSpacing) {
         EntityModelRegistry::buildEntityMesh(entity, vertices, indices);
     }
 
-    _vertexBuffer = GL::Buffer{GL::Buffer::TargetHint::Array};
-    _vertexBuffer.setData(Containers::arrayView(vertices), GL::BufferUsage::StaticDraw);
-
-    _indexBuffer = GL::Buffer{GL::Buffer::TargetHint::ElementArray};
-    _indexBuffer.setData(Containers::arrayView(indices), GL::BufferUsage::StaticDraw);
-
-    _mesh = GL::Mesh{};
-    _mesh.setCount(indices.size())
-         .addVertexBuffer(_vertexBuffer, 0,
-            GL::Attribute<0, Vector3>{}, // Position
-            GL::Attribute<1, Vector3>{}, // Normal
-            GL::Attribute<2, Color3>{},  // Color
-            GL::Attribute<3, Float>{})   // Ambient Occlusion
-         .setIndexBuffer(_indexBuffer, 0, GL::MeshIndexType::UnsignedInt);
-    _meshGenerated = true;
+    return ChunkMeshData{_chunkCoord, std::move(vertices), std::move(indices)};
 }
 
 }

@@ -37,9 +37,17 @@ void World::init(Int chunkWidth, Int chunkHeight) {
             if(_generator) {
                 _generator->generateChunk(c);
             }
-            c.buildMesh(_tileSpacing);
         }
     }
+}
+
+std::vector<ChunkMeshData> World::buildAllCpuMeshes() const {
+    std::vector<ChunkMeshData> results;
+    results.reserve(_chunks.size());
+    for(const auto& pair : _chunks) {
+        results.push_back(pair.second.buildCpuMesh(_tileSpacing));
+    }
+    return results;
 }
 
 World::RaycastHit World::raycastTile(const Vector3& rayOrigin, const Vector3& rayDir) const {
@@ -102,6 +110,7 @@ World::RaycastHit World::raycastTile(const Vector3& rayOrigin, const Vector3& ra
                     bestHit.worldTileX = ch.chunkCoord().x() * Chunk::Size + x;
                     bestHit.worldTileZ = ch.chunkCoord().y() * Chunk::Size + z;
                     bestHit.worldPoint = rayOrigin + rayDir * tmin;
+                    bestHit.tileHeight = t.height;
                 }
             }
         }

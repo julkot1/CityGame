@@ -14,19 +14,6 @@ namespace Magnum {
 
 using namespace Math::Literals;
 
-namespace {
-
-Vector3 rotateYQuarterTurns(const Vector3& v, UnsignedInt rot) {
-    switch(rot & 3u) {
-        case 1u: return Vector3{ v.z(), v.y(), -v.x()};
-        case 2u: return Vector3{-v.x(), v.y(), -v.z()};
-        case 3u: return Vector3{-v.z(), v.y(),  v.x()};
-        default: return v;
-    }
-}
-
-}
-
 Renderer::Renderer() {
     GL::Renderer::setClearColor(0xa5c9ea_rgbf);
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
@@ -73,13 +60,54 @@ Renderer::Renderer() {
     initCloudMesh();
 }
 
+void Renderer::setWorldBounds(Float minX, Float maxX, Float minZ, Float maxZ, Float tileSpacing) {
+    _minWorldX = minX;
+    _maxWorldX = maxX;
+    _minWorldZ = minZ;
+    _maxWorldZ = maxZ;
+    _tileSpacing = tileSpacing;
+    _chunkWorldSize = Float(Chunk::Size) * tileSpacing;
+}
+
+void Renderer::uploadChunkMesh(ChunkMeshData&& meshData) {
+    auto key = std::make_pair(meshData.chunkCoord.x(), meshData.chunkCoord.y());
+    RenderChunk& rc = _renderChunks[key];
+    rc.chunkCoord = meshData.chunkCoord;
+
+    if(meshData.indices.empty()) {
+        rc.hasMesh = false;
+        rc.indexCount = 0;
+        return;
+    }
+
+    rc.vertexBuffer = GL::Buffer{GL::Buffer::TargetHint::Array};
+    rc.vertexBuffer.setData(Containers::arrayView(meshData.vertices), GL::BufferUsage::StaticDraw);
+
+    rc.indexBuffer = GL::Buffer{GL::Buffer::TargetHint::ElementArray};
+    rc.indexBuffer.setData(Containers::arrayView(meshData.indices), GL::BufferUsage::StaticDraw);
+
+    rc.mesh = GL::Mesh{};
+    rc.mesh.setCount(meshData.indices.size())
+           .addVertexBuffer(rc.vertexBuffer, 0,
+              GL::Attribute<0, Vector3>{},
+              GL::Attribute<1, Vector3>{},
+              GL::Attribute<2, Color3>{},
+              GL::Attribute<3, Float>{})
+           .setIndexBuffer(rc.indexBuffer, 0, GL::MeshIndexType::UnsignedInt);
+    rc.hasMesh = true;
+    rc.indexCount = static_cast<UnsignedInt>(meshData.indices.size());
+}
+
+void Renderer::clearRenderChunks() {
+    _renderChunks.clear();
+}
+
 void Renderer::initCloudMesh() {
-    // Build a multi-tiered 3D voxel cloud cluster using ChunkVertex format so it receives full sunlight & fog
     std::vector<ChunkVertex> vertices;
     std::vector<UnsignedInt> indices;
 
     auto addCloudBox = [&](const Vector3& c0, const Vector3& c1, Float ao) {
-        const Color3 cloudCol{0.92f, 0.90f, 0.86f}; // Warm Victorian parchment-white cloud
+        const Color3 cloudCol{0.92f, 0.90f, 0.86f};
         struct Face { Vector3 n, v0, v1, v2, v3; };
         Face faces[6] = {
             {{ 0, 1, 0}, {c0.x(), c1.y(), c0.z()}, {c1.x(), c1.y(), c0.z()}, {c1.x(), c1.y(), c1.z()}, {c0.x(), c1.y(), c1.z()}},
@@ -101,12 +129,9 @@ void Renderer::initCloudMesh() {
         }
     };
 
-    // Main wide cloud belly + upper cumulus puffs + side wings
-    addCloudBox({-3.2f, 0.0f, -1.8f}, { 3.2f, 0.9f,  1.8f}, 0.90f);
-    addCloudBox({-2.0f, 0.8f, -1.3f}, { 1.6f, 1.8f,  1.3f}, 0.96f);
-    addCloudBox({-0.6f, 1.5f, -0.9f}, { 2.2f, 2.3f,  0.9f}, 1.00f);
-    addCloudBox({-4.4f, 0.1f, -1.1f}, {-2.4f, 0.8f,  1.2f}, 0.88f);
-    addCloudBox({ 2.2f, 0.2f, -1.2f}, { 4.2f, 1.0f,  1.0f}, 0.92f);
+    addCloudBox({-6.5f, 0.0f, -4.5f}, {6.5f, 1.8f, 4.5f}, 0.88f);
+    addCloudBox({-4.2f, 1.8f, -2.8f}, {4.2f, 3.2f, 2.8f}, 0.94f);
+    addCloudBox({-2.0f, 3.2f, -1.5f}, {2.0f, 4.2f, 1.5f}, 1.00f);
 
     _cloudVertexBuffer = GL::Buffer{GL::Buffer::TargetHint::Array};
     _cloudVertexBuffer.setData(Containers::arrayView(vertices), GL::BufferUsage::StaticDraw);
@@ -124,17 +149,16 @@ void Renderer::initCloudMesh() {
               .setIndexBuffer(_cloudIndexBuffer, 0, GL::MeshIndexType::UnsignedInt);
 }
 
-void Renderer::renderDriftingClouds(const World& world, const Matrix4&) {
-    if(world.chunks().empty()) return;
+void Renderer::renderDriftingClouds(const Matrix4&) {
+    if(_renderChunks.empty()) return;
 
-    const Float minX = world.minWorldX() - 20.0f;
-    const Float maxX = world.maxWorldX() + 20.0f;
-    const Float minZ = world.minWorldZ() - 20.0f;
-    const Float maxZ = world.maxWorldZ() + 20.0f;
+    const Float minX = _minWorldX - 20.0f;
+    const Float maxX = _maxWorldX + 20.0f;
+    const Float minZ = _minWorldZ - 20.0f;
+    const Float maxZ = _maxWorldZ + 20.0f;
     const Float spanX = Math::max(40.0f, maxX - minX);
     const Float spanZ = Math::max(40.0f, maxZ - minZ);
 
-    // Render 14 drifting voxel clouds wrapping seamlessly across the sky bounds
     constexpr int cloudCount = 14;
     for(int i = 0; i < cloudCount; ++i) {
         Float seedX = Float((i * 73 + 19) % 97) / 97.0f;
@@ -153,8 +177,7 @@ void Renderer::renderDriftingClouds(const World& world, const Matrix4&) {
     }
 }
 
-void Renderer::update(Float dt, const World& world) {
-    // 1. Advance existing puffs and remove expired ones
+void Renderer::update(Float dt, const std::vector<Vector3>& chimneyPositions) {
     for(auto& p : _smokePuffs) {
         p.age += dt;
         Float wobble = std::sin(p.age * 2.5f + p.seed * 6.28f) * 0.05f;
@@ -167,38 +190,14 @@ void Renderer::update(Float dt, const World& world) {
         _smokePuffs.end()
     );
 
-    // 2. Spawn new puffs from chimneys periodically
     _smokeSpawnTimer += dt;
-    if(_smokeSpawnTimer >= 0.35f) {
+    if(_smokeSpawnTimer >= 0.35f && !chimneyPositions.empty()) {
         _smokeSpawnTimer = 0.0f;
-
-        const Float tileSpacing = world.tileSpacing();
-        for(const auto& pair : world.chunks()) {
-            const Chunk& chunk = pair.second;
-            const Vector3 chunkOrigin = chunk.worldPosition(tileSpacing);
-
-            for(const Entity& entity : chunk.entities()) {
-                Vector3 localChimney;
-                bool hasChimney = false;
-
-                if(entity.type == EntityType::House2x2) {
-                    localChimney = Vector3{0.55f, 3.12f, -0.27f};
-                    hasChimney = true;
-                } else if(entity.type == EntityType::HouseStandalone2x2) {
-                    localChimney = Vector3{0.57f, 2.42f, -0.22f};
-                    hasChimney = true;
-                } else if(entity.type == EntityType::CityCenter2x3) {
-                    localChimney = Vector3{0.56f, 2.70f, -1.22f};
-                    hasChimney = true;
-                }
-
-                if(hasChimney && _smokePuffs.size() < 300) {
-                    Vector3 chimneyPos = chunkOrigin + entity.position + rotateYQuarterTurns(localChimney, entity.data & 3u);
-                    Float seed = Float((_smokePuffs.size() * 37 + std::rand()) % 1000) / 1000.0f;
-                    Float size = 0.85f + seed * 0.35f;
-                    _smokePuffs.push_back(SmokePuff{chimneyPos, 0.0f, seed, size});
-                }
-            }
+        for(const Vector3& chimneyPos : chimneyPositions) {
+            if(_smokePuffs.size() >= 300) break;
+            Float seed = Float((_smokePuffs.size() * 37 + std::rand()) % 1000) / 1000.0f;
+            Float size = 0.85f + seed * 0.35f;
+            _smokePuffs.push_back(SmokePuff{chimneyPos, 0.0f, seed, size});
         }
     }
 }
@@ -217,15 +216,9 @@ void Renderer::renderSmoke(const Matrix4& viewProjection) {
 
     for(const auto& p : _smokePuffs) {
         Float progress = Math::clamp(p.age / 2.8f, 0.0f, 1.0f);
-
-        // Smooth quadratic ease-out fade
         Float fade = 1.0f - progress;
         fade = fade * (2.0f - fade);
-
-        // Dense base opacity fading smoothly with height
         Float alpha = 0.82f * fade;
-
-        // Expanding volumetric size
         Float scale = (0.14f + progress * 0.35f) * p.size;
 
         Matrix4 model = Matrix4::translation(p.pos - Vector3{0.0f, scale * 0.5f, 0.0f})
@@ -244,7 +237,7 @@ void Renderer::setViewport(const Vector2i& size) {
     GL::defaultFramebuffer.setViewport({{}, size});
 }
 
-void Renderer::render(const World& world, const Camera& camera,
+void Renderer::render(const Camera& camera,
                       const World::RaycastHit& hoverHit,
                       const World::RaycastHit& selectedHit,
                       const Vector2i& hoverFootprint,
@@ -252,28 +245,20 @@ void Renderer::render(const World& world, const Camera& camera,
     GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
 
     const Matrix4 viewProjection = camera.viewProjectionMatrix();
-    const Float chunkWorldSize = world.chunkSizeInWorldUnits();
+    const Float chunkWorldSize = _chunkWorldSize;
 
     _shader.setProjectionMatrix(viewProjection)
            .setCameraPosition(camera.eyePosition());
 
     // Extract 6 view frustum planes from viewProjection matrix for Frustum Culling
-    // Plane: ax + by + cz + d = 0
     std::array<Vector4, 6> planes;
-    // Left
-    planes[0] = viewProjection.row(3) + viewProjection.row(0);
-    // Right
-    planes[1] = viewProjection.row(3) - viewProjection.row(0);
-    // Bottom
-    planes[2] = viewProjection.row(3) + viewProjection.row(1);
-    // Top
-    planes[3] = viewProjection.row(3) - viewProjection.row(1);
-    // Near
-    planes[4] = viewProjection.row(3) + viewProjection.row(2);
-    // Far
-    planes[5] = viewProjection.row(3) - viewProjection.row(2);
+    planes[0] = viewProjection.row(3) + viewProjection.row(0); // Left
+    planes[1] = viewProjection.row(3) - viewProjection.row(0); // Right
+    planes[2] = viewProjection.row(3) + viewProjection.row(1); // Bottom
+    planes[3] = viewProjection.row(3) - viewProjection.row(1); // Top
+    planes[4] = viewProjection.row(3) + viewProjection.row(2); // Near
+    planes[5] = viewProjection.row(3) - viewProjection.row(2); // Far
 
-    // Normalize planes
     for(auto& p : planes) {
         Float len = p.xyz().length();
         if(len > 1e-6f) p /= len;
@@ -282,114 +267,101 @@ void Renderer::render(const World& world, const Camera& camera,
     _lastDrawnChunks = 0;
 
     // Render visible chunks only
-    for(const auto& entry : world.chunks()) {
-        const Chunk& chunk = entry.second;
-        if(!chunk.hasMesh()) continue;
+    for(auto& entry : _renderChunks) {
+        RenderChunk& rc = entry.second;
+        if(!rc.hasMesh) continue;
 
         Vector3 chunkOrigin{
-            Float(chunk.chunkCoord().x()) * chunkWorldSize,
+            Float(rc.chunkCoord.x()) * chunkWorldSize,
             0.0f,
-            Float(chunk.chunkCoord().y()) * chunkWorldSize
+            Float(rc.chunkCoord.y()) * chunkWorldSize
         };
         Vector3 minPos = chunkOrigin - Vector3{2.0f, 0.0f, 2.0f};
         Vector3 maxPos = chunkOrigin + Vector3{
             chunkWorldSize + 2.0f,
-            25.0f, // Max possible world height
+            25.0f,
             chunkWorldSize + 2.0f
         };
 
-        // AABB vs Frustum culling test
         bool outside = false;
         for(const auto& plane : planes) {
-            // Find positive vertex along plane normal
             Vector3 pVertex{
                 plane.x() > 0.0f ? maxPos.x() : minPos.x(),
                 plane.y() > 0.0f ? maxPos.y() : minPos.y(),
                 plane.z() > 0.0f ? maxPos.z() : minPos.z()
             };
-
             if(Math::dot(plane.xyz(), pVertex) + plane.w() < 0.0f) {
                 outside = true;
                 break;
             }
         }
 
-        if(outside) continue; // Culled! Skip drawing this chunk completely
+        if(outside) continue;
 
         Matrix4 modelMatrix = Matrix4::translation(chunkOrigin);
         _shader.setTransformationMatrix(modelMatrix);
-        _shader.draw(chunk.mesh());
+        _shader.draw(rc.mesh);
         _lastDrawnChunks++;
     }
 
-    // Render drifting 3D voxel clouds high in the sky
-    renderDriftingClouds(world, viewProjection);
+    renderDriftingClouds(viewProjection);
 
-    // Smooth breathing/pulsing animation for selection and hover indicators
     Float pulse = 0.5f + 0.5f * std::sin(_timeSeconds * 4.5f);
     Float bobOffset = std::sin(_timeSeconds * 3.5f) * 0.025f;
 
-    // Render selected tile overlay (animated cyan outline box)
+    // Render selected tile overlay (animated cyan box)
     if(selectedHit.hit) {
-        const Chunk* ch = world.chunk(selectedHit.chunkCoord);
-        if(ch) {
-            const Tile& t = ch->tile(selectedHit.localTileCoord.x(), selectedHit.localTileCoord.y());
-            Vector3 chunkPos{
-                Float(selectedHit.chunkCoord.x()) * chunkWorldSize,
-                0.0f,
-                Float(selectedHit.chunkCoord.y()) * chunkWorldSize
-            };
-            Vector3 tilePos = chunkPos + Vector3{
-                Float(selectedHit.localTileCoord.x()) * world.tileSpacing(),
-                bobOffset,
-                Float(selectedHit.localTileCoord.y()) * world.tileSpacing()
-            };
+        Vector3 chunkPos{
+            Float(selectedHit.chunkCoord.x()) * chunkWorldSize,
+            0.0f,
+            Float(selectedHit.chunkCoord.y()) * chunkWorldSize
+        };
+        Vector3 tilePos = chunkPos + Vector3{
+            Float(selectedHit.localTileCoord.x()) * _tileSpacing,
+            bobOffset,
+            Float(selectedHit.localTileCoord.y()) * _tileSpacing
+        };
 
-            Float scaleXZ = 1.025f + pulse * 0.02f;
-            Matrix4 model = Matrix4::translation(tilePos) *
-                            Matrix4::scaling({scaleXZ, t.height * 1.03f, scaleXZ});
+        Float scaleXZ = 1.025f + pulse * 0.02f;
+        Float height = Math::max(0.2f, selectedHit.tileHeight);
+        Matrix4 model = Matrix4::translation(tilePos) *
+                        Matrix4::scaling({scaleXZ, height * 1.03f, scaleXZ});
 
-            _flatShader.setColor(Color4{0.2f, 0.85f, 1.0f, 0.45f + pulse * 0.25f}) // Animated cyan selection
-                       .setTransformationProjectionMatrix(viewProjection * model);
-            _flatShader.draw(_highlightMesh);
-        }
+        _flatShader.setColor(Color4{0.2f, 0.85f, 1.0f, 0.45f + pulse * 0.25f})
+                   .setTransformationProjectionMatrix(viewProjection * model);
+        _flatShader.draw(_highlightMesh);
     }
 
-    // Render hover highlight overlay if hovering a valid tile (supports arbitrary NxM building footprints)
+    // Render hover highlight overlay
     if(hoverHit.hit && (hoverFootprint.x() > 1 || hoverFootprint.y() > 1 || !selectedHit.hit || hoverHit.worldTileX != selectedHit.worldTileX || hoverHit.worldTileZ != selectedHit.worldTileZ)) {
-        const Chunk* ch = world.chunk(hoverHit.chunkCoord);
-        if(ch) {
-            const Tile& t = ch->tile(hoverHit.localTileCoord.x(), hoverHit.localTileCoord.y());
-            Vector3 chunkPos{
-                Float(hoverHit.chunkCoord.x()) * chunkWorldSize,
-                0.0f,
-                Float(hoverHit.chunkCoord.y()) * chunkWorldSize
-            };
-            Float centerOffsetX = Float(hoverFootprint.x() - 1) * 0.5f * world.tileSpacing();
-            Float centerOffsetZ = Float(hoverFootprint.y() - 1) * 0.5f * world.tileSpacing();
-            Vector3 tilePos = chunkPos + Vector3{
-                Float(hoverHit.localTileCoord.x()) * world.tileSpacing() + centerOffsetX,
-                bobOffset * 0.6f,
-                Float(hoverHit.localTileCoord.y()) * world.tileSpacing() + centerOffsetZ
-            };
+        Vector3 chunkPos{
+            Float(hoverHit.chunkCoord.x()) * chunkWorldSize,
+            0.0f,
+            Float(hoverHit.chunkCoord.y()) * chunkWorldSize
+        };
+        Float centerOffsetX = Float(hoverFootprint.x() - 1) * 0.5f * _tileSpacing;
+        Float centerOffsetZ = Float(hoverFootprint.y() - 1) * 0.5f * _tileSpacing;
+        Vector3 tilePos = chunkPos + Vector3{
+            Float(hoverHit.localTileCoord.x()) * _tileSpacing + centerOffsetX,
+            bobOffset * 0.6f,
+            Float(hoverHit.localTileCoord.y()) * _tileSpacing + centerOffsetZ
+        };
 
-            // Scale to match footprint (NxM) and height
-            Float scaleX = Float(hoverFootprint.x()) + 0.02f + pulse * 0.015f;
-            Float scaleZ = Float(hoverFootprint.y()) + 0.02f + pulse * 0.015f;
-            Matrix4 model = Matrix4::translation(tilePos) *
-                            Matrix4::scaling({scaleX, t.height * 1.02f, scaleZ});
+        Float scaleX = Float(hoverFootprint.x()) + 0.02f + pulse * 0.015f;
+        Float scaleZ = Float(hoverFootprint.y()) + 0.02f + pulse * 0.015f;
+        Float height = Math::max(0.2f, hoverHit.tileHeight);
+        Matrix4 model = Matrix4::translation(tilePos) *
+                        Matrix4::scaling({scaleX, height * 1.02f, scaleZ});
 
-            Color4 hoverColor = hoverValid
-                ? Color4{1.0f, 0.90f, 0.25f, 0.38f + pulse * 0.20f}  // Warm pulsing brass/gold
-                : Color4{0.95f, 0.28f, 0.25f, 0.45f + pulse * 0.20f}; // Red invalid placement warning
+        Color4 hoverColor = hoverValid
+            ? Color4{1.0f, 0.90f, 0.25f, 0.38f + pulse * 0.20f}
+            : Color4{0.95f, 0.28f, 0.25f, 0.45f + pulse * 0.20f};
 
-            _flatShader.setColor(hoverColor)
-                       .setTransformationProjectionMatrix(viewProjection * model);
-            _flatShader.draw(_highlightMesh);
-        }
+        _flatShader.setColor(hoverColor)
+                   .setTransformationProjectionMatrix(viewProjection * model);
+        _flatShader.draw(_highlightMesh);
     }
 
-    // Render soft translucent chimney smoke plumes
     renderSmoke(viewProjection);
 }
 

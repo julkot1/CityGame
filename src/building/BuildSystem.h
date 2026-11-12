@@ -31,24 +31,25 @@ class BuildSystem {
         }
 
         UnsignedInt buildingOrientation() const { return _buildingOrientation; }
+        void setBuildingOrientation(UnsignedInt orientation) { _buildingOrientation = orientation & 3u; }
         void rotateBuilding() { _buildingOrientation = (_buildingOrientation + 1u) & 3u; }
 
         // Returns the effective footprint (accounting for rotation) of the currently selected tool
         Vector2i toolFootprint() const;
 
         PlacementValidation validatePlacement(const World& world, const World::RaycastHit& hit) const;
-        bool executeAction(World& world, const World::RaycastHit& hit);
+        bool executeAction(World& world, const World::RaycastHit& hit, std::vector<ChunkMeshData>* outDirtyMeshes = nullptr);
 
         const char* toolName(BuildTool tool) const;
 
     private:
         PlacementValidation validateBlueprintPlacement(const World& world, Int worldX, Int worldZ,
                                                        const BuildingBlueprint& bp) const;
-        bool executeDemolish(World& world, Int worldX, Int worldZ);
+        bool executeDemolish(World& world, Int worldX, Int worldZ, std::vector<ChunkMeshData>* outDirtyMeshes = nullptr);
         bool executeRoadPlacement(World& world, const World::RaycastHit& hit,
-                                  const BuildingBlueprint& bp);
+                                  const BuildingBlueprint& bp, std::vector<ChunkMeshData>* outDirtyMeshes = nullptr);
         bool executeStructurePlacement(World& world, const World::RaycastHit& hit,
-                                       const BuildingBlueprint& bp);
+                                       const BuildingBlueprint& bp, std::vector<ChunkMeshData>* outDirtyMeshes = nullptr);
 
         BuildTool _activeTool{BuildTool::Inspect};
         UnsignedInt _buildingOrientation{0}; // 0 = +Z, 1 = +X, 2 = -Z, 3 = -X
